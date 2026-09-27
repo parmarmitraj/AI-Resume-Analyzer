@@ -1,0 +1,15 @@
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+
+# Environment Variables (CRITICAL: Protects your Gemini API Key)
+.env
+
+# Operating System Files
+.DS_Store
+Thumbs.db
