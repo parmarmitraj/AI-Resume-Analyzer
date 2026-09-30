@@ -27,7 +27,7 @@ def generate_feedback(match_results, job_role="Software Engineer"):
     how they can improve their resume based on the missing skills.
     
     Return the response STRICTLY as a JSON object containing exactly two keys:
-    1. "summary": A string containing a 2-3 sentence overview of their candidacy.
+    1. "summary": A string containing a 2-3 sentence overview of their candidacy.(use your common sense e.g. if match skill has React and you say that you need to work on HTML, CSS, JS becuase of missing skills, it will be a bad suggestion because React is a frontend framework and it is built on top of HTML, CSS, JS so if you know React you already know HTML, CSS, JS)
     2. "improvement_tips": An array of strings, where each string is a bullet point of advice.
     """
     
