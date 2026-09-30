@@ -79,8 +79,8 @@ def calculate_match(resume_text, jd_text):
     cosine_score = cosine_sim * 100
 
     # 4. Final Weighted Score
-    # We prioritize exact skill matches (60% weight) but still value overall contextual similarity (40% weight)
-    final_score = (skill_score * 0.60) + (cosine_score * 0.40)
+    # We prioritize exact skill matches (50% weight) but still value overall contextual similarity (50% weight)
+    final_score = (skill_score * 0.50) + (cosine_score * 0.50)
 
     return {
         "matched_skills": list(matched_skills),
