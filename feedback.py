@@ -12,23 +12,34 @@ load_dotenv()
 # The SDK automatically detects the GEMINI_API_KEY you set in your terminal
 client = genai.Client()
 
-def generate_feedback(match_results, job_role="Software Engineer"):
+def generate_feedback(match_results, resume_text, jd_text, job_role="Software Engineer"):
     # 2. Construct the Prompt
-    # We dynamically inject the variables calculated from Phase 3
+    # We dynamically inject the variables calculated from Phase 3, PLUS the raw text
     prompt = f"""
     You are an expert technical recruiter evaluating a candidate for a {job_role} position.
     
-    Here is the analysis data:
-    - Match Score: {match_results['final_match_pct']}%
+    Here is the exact Job Description:
+    {jd_text}
+    
+    Here is the candidate's Resume Text:
+    {resume_text}
+    
+    Here is the keyword-based analysis data:
+    - Base Math Score: {match_results['final_match_pct']}%
     - Matched Skills: {', '.join(match_results['matched_skills'])}
     - Missing Skills: {', '.join(match_results['missing_skills'])}
     
-    Based on this data, provide a brief, encouraging summary of their fit, and suggest exactly 
-    how they can improve their resume based on the missing skills.
+    Based on all of this data, provide a brief, encouraging summary of their fit, and suggest exactly 
+    how they can improve their resume. 
     
-    Return the response STRICTLY as a JSON object containing exactly two keys:
-    1. "summary": A string containing a 2-3 sentence overview of their candidacy.(use your common sense e.g. if match skill has React and you say that you need to work on HTML, CSS, JS becuase of missing skills, it will be a bad suggestion because React is a frontend framework and it is built on top of HTML, CSS, JS so if you know React you already know HTML, CSS, JS)
+    Crucially, evaluate the resume semantically against the job description and assign a "genuine_score" 
+    out of 100. This score should reflect how well the candidate actually fits the role (distinguishing 
+    between mandatory and bonus requirements), ignoring the strict keyword math.
+
+    Return the response STRICTLY as a JSON object containing exactly three keys:
+    1. "summary": A string containing a 2-3 sentence overview of their candidacy. (Use common sense, e.g. if they know React, don't tell them they are missing HTML/JS).
     2. "improvement_tips": An array of strings, where each string is a bullet point of advice.
+    3. "genuine_score": An integer between 0 and 100 representing the true contextual match.
     """
     
     print("Connecting to Gemini API...")
@@ -62,7 +73,7 @@ if __name__ == "__main__":
     results = calculate_match(raw_resume, sample_jd)
     
     # Step C: Generate AI Feedback
-    json_feedback = generate_feedback(results)
+    json_feedback = generate_feedback(results, raw_resume, sample_jd)
     
     print("\n--- Final API Response (Ready for Frontend) ---\n")
     print(json_feedback)

@@ -25,11 +25,15 @@ async def analyze_resume(
         raw_text = extract_text_from_pdf(temp_file_path)
         match_results = calculate_match(raw_text, job_description)
         
-        # 3. Generate the human-readable summary (Phase 4)
-        ai_response_string = generate_feedback(match_results)
+        # 3. Generate the human-readable summary and context-aware score (Phase 4)
+        ai_response_string = generate_feedback(match_results, raw_text, job_description)
         
         # Parse the string into an actual JSON object to ensure clean data transfer
         feedback_json = json.loads(ai_response_string)
+        
+        # Override the rigid mathematical score with the LLM's genuine contextual score
+        if "genuine_score" in feedback_json:
+            match_results["final_match_pct"] = feedback_json["genuine_score"]
 
     finally:
         # 4. Clean up the disk regardless of success or failure
