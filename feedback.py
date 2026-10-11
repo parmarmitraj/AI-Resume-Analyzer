@@ -1,4 +1,7 @@
 import os
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -60,4 +63,4 @@ def generate_feedback(match_results, resume_text, jd_text, job_role="Software En
     )
     
     # The API returns the raw JSON string
-    return response.text
+    return response.text
