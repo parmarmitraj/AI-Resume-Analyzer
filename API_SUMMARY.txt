@@ -7,27 +7,31 @@ Content-Type: multipart/form-data
 CORS: Enabled for all origins (*)
 
 ================================================================================
-1. ENDPOINT A: STUDENT PORTAL (Single Resume In-Depth Analysis)
+1. ENDPOINT A: STUDENT PORTAL (Single Resume In-Depth Analysis + Gemini AI Feedback)
 ================================================================================
 Route:          /api/student/analyze
 Method:         POST
 Content-Type:   multipart/form-data
 Description:    Analyzes a single student resume against a job description.
-                Extracts skills using custom BiLSTM NER + TF-IDF scorer,
-                returning matched skills, missing skills, and detailed scores.
+                1. Extracts skills using custom BiLSTM NER + TF-IDF scorer.
+                2. Connects to Gemini API to generate personalized feedback
+                   (candidate summary, improvement bullet points, and genuine score).
 
 EXPECTED PAYLOAD (FormData):
 --------------------------------------------------------------------------------
-Field Name        | Type             | Description
-------------------|------------------|------------------------------------------
-resume            | File (.pdf)      | Candidate resume PDF file
-job_description   | Text (string)    | Target job description text
+Field Name        | Type             | Required | Description
+------------------|------------------|----------|-------------------------------
+resume            | File (.pdf)      | Yes      | Candidate resume PDF file
+job_description   | Text (string)    | Yes      | Target job description text
+job_role          | Text (string)    | No       | Target job title (defaults to
+                  |                  |          | "Software Engineer")
 
 REACT / JAVASCRIPT CALL EXAMPLE:
 --------------------------------------------------------------------------------
 const formData = new FormData();
 formData.append('resume', selectedPdfFile);
 formData.append('job_description', jobDescriptionText);
+formData.append('job_role', 'Full Stack AI Engineer'); // optional
 
 const response = await axios.post('http://localhost:8000/api/student/analyze', formData, {
   headers: { 'Content-Type': 'multipart/form-data' },
@@ -55,7 +59,16 @@ SUCCESSFUL JSON RESPONSE (200 OK):
       "aws",
       "kubernetes",
       "redis"
-    ]
+    ],
+    "feedback": {
+      "summary": "Strong foundation in full stack development with solid React and Node.js skills. However, to excel in this specific role, gaining experience with container orchestration and cloud deployments is recommended.",
+      "improvement_tips": [
+        "Include hands-on projects showing Docker containerization and Kubernetes orchestration.",
+        "Add practical experience with Redis caching or AWS cloud infrastructure.",
+        "Highlight any experience deploying scalable backend APIs."
+      ],
+      "genuine_score": 78
+    }
   }
 }
 
@@ -67,7 +80,7 @@ ERROR RESPONSES:
 - Empty PDF:             {"detail": "Uploaded file '...' is empty."}
 
 500 Internal Server Error:
-- Extraction/Model failure: {"detail": "An error occurred while processing '...': <error_message>"}
+- Pipeline failure:      {"detail": "An error occurred while processing '...': <error_message>"}
 
 
 ================================================================================
@@ -77,22 +90,23 @@ Route:          /api/recruiter/bulk-rank
 Method:         POST
 Content-Type:   multipart/form-data
 Description:    Evaluates multiple candidate resumes against a single job description.
-                Returns a ranked leaderboard array sorted from highest Final Match %
-                to lowest. Non-PDF or corrupted files are caught and listed under
-                'skipped_files' without breaking the overall batch.
+                Runs the BiLSTM NER + TF-IDF pipeline and returns a sorted leaderboard
+                array (highest Final Match % to lowest). Non-PDF or corrupt files are
+                caught and recorded under 'skipped_files' without failing the batch.
+                (Note: LLM coaching feedback is excluded for recruiter bulk speed).
 
 EXPECTED PAYLOAD (FormData):
 --------------------------------------------------------------------------------
-Field Name        | Type             | Description
-------------------|------------------|------------------------------------------
-resumes           | File List (.pdf) | Multiple candidate resume files (append each
-                  |                  | file using the same field name 'resumes')
-job_description   | Text (string)    | Single target job description string
+Field Name        | Type             | Required | Description
+------------------|------------------|----------|-------------------------------
+resumes           | File List (.pdf) | Yes      | Multiple candidate resume files
+                  |                  |          | (append each file using key 'resumes')
+job_description   | Text (string)    | Yes      | Single target job description
 
 REACT / JAVASCRIPT CALL EXAMPLE:
 --------------------------------------------------------------------------------
 const formData = new FormData();
-// Append each PDF file under the 'resumes' key
+// Append each PDF file under the same 'resumes' key
 Array.from(pdfFilesList).forEach((file) => {
   formData.append('resumes', file);
 });

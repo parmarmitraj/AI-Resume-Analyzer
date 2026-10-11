@@ -173,7 +173,7 @@ def calculate_match(resume_text, jd_text):
     }
 
 
-def process_resume(pdf_bytes, jd_text):
+def process_resume(pdf_bytes, jd_text, return_raw_text=False):
     """
     Production entry point:
     Accepts raw PDF byte stream (or file path) and Job Description text,
@@ -182,9 +182,13 @@ def process_resume(pdf_bytes, jd_text):
     Args:
         pdf_bytes (bytes | bytearray | str): Raw bytes of the PDF file or a file path.
         jd_text (str): Job description text string.
+        return_raw_text (bool): Whether to include the raw extracted resume text.
 
     Returns:
         dict: A JSON-compatible dictionary with matching metrics and skills.
     """
     raw_resume_text = extract_text_from_pdf(pdf_bytes)
-    return calculate_match(raw_resume_text, jd_text)
+    match_result = calculate_match(raw_resume_text, jd_text)
+    if return_raw_text:
+        match_result["raw_text"] = raw_resume_text
+    return match_result

@@ -1,12 +1,17 @@
-from typing import List
+import json
+import logging
+from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from matcher import process_resume
+from feedback import generate_feedback
+
+logger = logging.getLogger("uvicorn.error")
 
 # Initialize FastAPI application
 app = FastAPI(
     title="AI Resume Analyzer API",
-    description="Dual-role (Student & Recruiter) AI-powered Resume Analyzer using Custom BiLSTM NER and TF-IDF Scorer",
+    description="Dual-role (Student & Recruiter) AI-powered Resume Analyzer using Custom BiLSTM NER, TF-IDF Scorer, and Gemini LLM Feedback",
     version="1.0.0"
 )
 
@@ -31,17 +36,19 @@ async def root():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Endpoint A: Student Portal (Single Resume In-Depth Analysis)
+# Endpoint A: Student Portal (Single Resume In-Depth Analysis + AI Feedback)
 # ─────────────────────────────────────────────────────────────────────────────
 @app.post("/api/student/analyze", status_code=status.HTTP_200_OK)
 async def analyze_student_resume(
     resume: UploadFile = File(..., description="Single resume file in PDF format"),
-    job_description: str = Form(..., description="Target Job Description text")
+    job_description: str = Form(..., description="Target Job Description text"),
+    job_role: Optional[str] = Form("Software Engineer", description="Target job role (optional, defaults to Software Engineer)")
 ):
     """
     Analyzes a single student resume against a target job description.
-    Runs the custom BiLSTM NER skill extraction pipeline and TF-IDF contextual scorer
-    to return detailed feedback including matched skills and missing skills.
+    1. Runs the custom BiLSTM NER skill extraction pipeline and TF-IDF contextual scorer.
+    2. Calls Gemini API to generate tailored coaching feedback (candidacy summary, 
+       actionable improvement bullet points, and a genuine semantic fit score).
     """
     if not job_description or not job_description.strip():
         raise HTTPException(
@@ -64,8 +71,30 @@ async def analyze_student_resume(
                 detail=f"Uploaded file '{resume.filename}' is empty."
             )
 
-        # Execute ML pipeline
-        result = process_resume(pdf_bytes, job_description.strip())
+        # 1. Execute ML pipeline (BiLSTM NER + TF-IDF)
+        result = process_resume(pdf_bytes, job_description.strip(), return_raw_text=True)
+        raw_resume_text = result.pop("raw_text", "")
+
+        # 2. Generate contextual LLM feedback via Gemini API
+        ai_feedback = None
+        try:
+            feedback_raw = generate_feedback(
+                match_results=result,
+                resume_text=raw_resume_text,
+                jd_text=job_description.strip(),
+                job_role=job_role
+            )
+            ai_feedback = json.loads(feedback_raw)
+        except Exception as gemini_err:
+            logger.warning(f"Gemini feedback generation skipped or failed: {gemini_err}")
+            ai_feedback = {
+                "summary": "AI feedback generation is temporarily unavailable.",
+                "improvement_tips": [
+                    f"Consider adding missing skills: {', '.join(result['missing_skills'][:5])}" if result["missing_skills"] else "Highlight more project experience relevant to the job requirements."
+                ],
+                "genuine_score": int(result["final_match_pct"]),
+                "note": "Fallback evaluation generated from local ML scoring."
+            }
 
         return {
             "status": "success",
@@ -75,7 +104,8 @@ async def analyze_student_resume(
                 "skill_score_pct": result["skill_score_pct"],
                 "context_score_pct": result["context_score_pct"],
                 "matched_skills": result["matched_skills"],
-                "missing_skills": result["missing_skills"]
+                "missing_skills": result["missing_skills"],
+                "feedback": ai_feedback
             }
         }
     except HTTPException:
