@@ -1,3 +1,4 @@
+import math
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from extractor import extract_text_from_pdf
@@ -123,16 +124,9 @@ def calculate_match(resume_text, jd_text):
     raw_resume_skills = extract_skills(resume_text)
     raw_jd_skills = extract_skills(jd_text)
     
-    # Debug output (remove in production)
-    print(f"\n[DEBUG] Raw Resume Skills from BiLSTM: {raw_resume_skills}")
-    print(f"[DEBUG] Raw JD Skills from BiLSTM: {raw_jd_skills}")
-    
     # Expand with aliases and inferences (all comparisons done in lowercase)
     resume_skills = normalize_and_infer(raw_resume_skills)
     jd_skills = normalize_and_infer(raw_jd_skills)
-    
-    print(f"[DEBUG] Expanded Resume Skills: {sorted(resume_skills)}")
-    print(f"[DEBUG] Expanded JD Skills: {sorted(jd_skills)}")
     
     # ── Step 2: Set-based Exact Match Scoring ──
     if not jd_skills:
@@ -160,12 +154,9 @@ def calculate_match(resume_text, jd_text):
     cosine_sim = cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
     cosine_score = cosine_sim * 100
     
-    import math
-    
     # ── Step 4: Final Weighted Score ──
     # 50% exact skill match + 50% contextual similarity
     raw_final_score = (skill_score * 0.50) + (cosine_score * 0.50)
-    
     
     # --- NON-LINEAR SCALING (CURVING) ---
     # Keyword matching naturally yields lower scores because no candidate has 100% of all JD keywords.
@@ -176,56 +167,24 @@ def calculate_match(resume_text, jd_text):
     return {
         "matched_skills": sorted(list(matched_skills)),
         "missing_skills": sorted(list(missing_skills)),
-        "skill_score_pct": round(skill_score, 2),
-        "context_score_pct": round(cosine_score, 2),
-        "final_match_pct": round(final_score, 2)
+        "skill_score_pct": float(round(skill_score, 2)),
+        "context_score_pct": float(round(cosine_score, 2)),
+        "final_match_pct": float(round(final_score, 2))
     }
 
 
-# ──────────────────────────────────────────────────────────────────────
-# 3. Test the Pipeline
-# ──────────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    resume_path = "resumes/sample.pdf"
-    
-    # Example Job Description
-    sample_jd = """
-    # Role: Full Stack AI Engineer
+def process_resume(pdf_bytes, jd_text):
+    """
+    Production entry point:
+    Accepts raw PDF byte stream (or file path) and Job Description text,
+    extracts resume text, and runs the hybrid BiLSTM NER + TF-IDF scoring pipeline.
 
-## Core Requirements (Mandatory)
-- Strong knowledge of JavaScript, ES6+, asynchronous programming, and modern web development.
-- Hands-on experience building responsive web applications using React.js.
-- Backend development using Node.js and Express.js to build RESTful APIs.
-- Experience with MongoDB, database schema design, indexing, and query optimization.
-- Experience deploying containerized applications using Docker and Kubernetes.
-- Ability to integrate machine learning models into web applications through APIs.
-- Experience building, testing, debugging, and maintaining scalable full-stack applications.
+    Args:
+        pdf_bytes (bytes | bytearray | str): Raw bytes of the PDF file or a file path.
+        jd_text (str): Job description text string.
 
-## Bonus Skills (Preferred)
-- Experience with Python, Scikit-Learn, or XGBoost.
-- Familiarity with AWS, Azure, or Google Cloud Platform.
-- Knowledge of CI/CD pipelines and automated testing.
-- Experience with Redis, GraphQL, or message queues.
-- Understanding of authentication, authorization, and application security.    
-"""
-    
-    # Extract text from the resume
-    raw_resume = extract_text_from_pdf(resume_path)
-    
-    # Run the matching algorithm
-    print("\n--- Running AI Resume Analysis ---")
-    results = calculate_match(raw_resume, sample_jd)
-    
-    print(f"\n{'='*50}")
-    print(f"Overall Match Score: {results['final_match_pct']}%")
-    print(f"Context Similarity (TF-IDF): {results['context_score_pct']}%")
-    print(f"Exact Skill Match: {results['skill_score_pct']}%")
-    print(f"{'='*50}")
-    
-    print("\nMatched Skills:")
-    for skill in results['matched_skills']:
-        print(f"  [+] {skill.title()}")
-        
-    print("\nMissing Skills (To Improve):")
-    for skill in results['missing_skills']:
-        print(f"  [-] {skill.title()}")
+    Returns:
+        dict: A JSON-compatible dictionary with matching metrics and skills.
+    """
+    raw_resume_text = extract_text_from_pdf(pdf_bytes)
+    return calculate_match(raw_resume_text, jd_text)

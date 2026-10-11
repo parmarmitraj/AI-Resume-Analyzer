@@ -301,23 +301,3 @@ def extract_skills(text):
     
     return list(all_skills)
 
-
-# ──────────────────────────────────────────────────────────────────────
-# 6. Verification Block
-# ──────────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    sample_text = (
-        "Developed a backend using Node.js and MongoDB. "
-        "Built interfaces with React and deployed backend services. "
-        "Proficient in Python, Java, C++, and JavaScript. "
-        "Experience with Machine Learning, TensorFlow, and scikit-learn. "
-        "Knowledge of HTML, CSS, and Flask for web development. "
-        "Also used GraphQL and Docker in CI/CD pipeline."
-    )
-    print("\nSample Input Text:")
-    print(sample_text)
-    
-    extracted = extract_skills(sample_text)
-    print(f"\nHybrid Extractor Output ({len(extracted)} skills):")
-    for skill in sorted(extracted):
-        print(f"  → {skill}")

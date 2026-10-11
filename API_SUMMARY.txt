@@ -1,0 +1,185 @@
+================================================================================
+AI RESUME ANALYZER - FRONTEND INTEGRATION API CONTRACT & SUMMARY
+================================================================================
+Base URL: http://localhost:8000
+Interactive Swagger Docs: http://localhost:8000/docs
+Content-Type: multipart/form-data
+CORS: Enabled for all origins (*)
+
+================================================================================
+1. ENDPOINT A: STUDENT PORTAL (Single Resume In-Depth Analysis)
+================================================================================
+Route:          /api/student/analyze
+Method:         POST
+Content-Type:   multipart/form-data
+Description:    Analyzes a single student resume against a job description.
+                Extracts skills using custom BiLSTM NER + TF-IDF scorer,
+                returning matched skills, missing skills, and detailed scores.
+
+EXPECTED PAYLOAD (FormData):
+--------------------------------------------------------------------------------
+Field Name        | Type             | Description
+------------------|------------------|------------------------------------------
+resume            | File (.pdf)      | Candidate resume PDF file
+job_description   | Text (string)    | Target job description text
+
+REACT / JAVASCRIPT CALL EXAMPLE:
+--------------------------------------------------------------------------------
+const formData = new FormData();
+formData.append('resume', selectedPdfFile);
+formData.append('job_description', jobDescriptionText);
+
+const response = await axios.post('http://localhost:8000/api/student/analyze', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' },
+});
+console.log(response.data);
+
+SUCCESSFUL JSON RESPONSE (200 OK):
+--------------------------------------------------------------------------------
+{
+  "status": "success",
+  "filename": "john_doe_resume.pdf",
+  "data": {
+    "final_match_pct": 74.85,
+    "skill_score_pct": 70.0,
+    "context_score_pct": 52.3,
+    "matched_skills": [
+      "docker",
+      "javascript",
+      "mongodb",
+      "node.js",
+      "python",
+      "react"
+    ],
+    "missing_skills": [
+      "aws",
+      "kubernetes",
+      "redis"
+    ]
+  }
+}
+
+ERROR RESPONSES:
+--------------------------------------------------------------------------------
+400 Bad Request:
+- Empty job description: {"detail": "Job description cannot be empty."}
+- Non-PDF file:          {"detail": "Invalid file format for '...'. Only PDF files (.pdf) are supported."}
+- Empty PDF:             {"detail": "Uploaded file '...' is empty."}
+
+500 Internal Server Error:
+- Extraction/Model failure: {"detail": "An error occurred while processing '...': <error_message>"}
+
+
+================================================================================
+2. ENDPOINT B: RECRUITER PORTAL (Bulk Candidate Screening & Leaderboard)
+================================================================================
+Route:          /api/recruiter/bulk-rank
+Method:         POST
+Content-Type:   multipart/form-data
+Description:    Evaluates multiple candidate resumes against a single job description.
+                Returns a ranked leaderboard array sorted from highest Final Match %
+                to lowest. Non-PDF or corrupted files are caught and listed under
+                'skipped_files' without breaking the overall batch.
+
+EXPECTED PAYLOAD (FormData):
+--------------------------------------------------------------------------------
+Field Name        | Type             | Description
+------------------|------------------|------------------------------------------
+resumes           | File List (.pdf) | Multiple candidate resume files (append each
+                  |                  | file using the same field name 'resumes')
+job_description   | Text (string)    | Single target job description string
+
+REACT / JAVASCRIPT CALL EXAMPLE:
+--------------------------------------------------------------------------------
+const formData = new FormData();
+// Append each PDF file under the 'resumes' key
+Array.from(pdfFilesList).forEach((file) => {
+  formData.append('resumes', file);
+});
+formData.append('job_description', jobDescriptionText);
+
+const response = await axios.post('http://localhost:8000/api/recruiter/bulk-rank', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' },
+});
+console.log(response.data);
+
+SUCCESSFUL JSON RESPONSE (200 OK):
+--------------------------------------------------------------------------------
+{
+  "status": "success",
+  "total_resumes_received": 3,
+  "total_ranked": 2,
+  "total_skipped": 1,
+  "leaderboard": [
+    {
+      "rank": 1,
+      "filename": "alice_resume.pdf",
+      "final_match_pct": 89.44,
+      "skill_score_pct": 85.0,
+      "context_score_pct": 75.2,
+      "matched_skills": [
+        "docker",
+        "fastapi",
+        "machine learning",
+        "python",
+        "pytorch"
+      ],
+      "missing_skills": [
+        "aws"
+      ],
+      "matched_skills_count": 5,
+      "missing_skills_count": 1
+    },
+    {
+      "rank": 2,
+      "filename": "bob_resume.pdf",
+      "final_match_pct": 68.12,
+      "skill_score_pct": 60.0,
+      "context_score_pct": 42.1,
+      "matched_skills": [
+        "fastapi",
+        "python"
+      ],
+      "missing_skills": [
+        "aws",
+        "docker",
+        "machine learning",
+        "pytorch"
+      ],
+      "matched_skills_count": 2,
+      "missing_skills_count": 4
+    }
+  ],
+  "skipped_files": [
+    {
+      "filename": "notes.txt",
+      "reason": "Unsupported format (must be .pdf)"
+    }
+  ]
+}
+
+ERROR RESPONSES:
+--------------------------------------------------------------------------------
+400 Bad Request:
+- Empty job description: {"detail": "Job description cannot be empty."}
+- No files uploaded:     {"detail": "Please provide at least one resume PDF."}
+
+
+================================================================================
+3. HEALTH CHECK ENDPOINT
+================================================================================
+Route:          /
+Method:         GET
+Response:
+{
+  "status": "online",
+  "service": "AI Resume Analyzer API",
+  "version": "1.0.0"
+}
+
+================================================================================
+HOW TO START THE BACKEND SERVER:
+================================================================================
+Command:
+.\venv\Scripts\uvicorn main:app --reload --host 0.0.0.0 --port 8000
+================================================================================
