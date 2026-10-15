@@ -1,78 +1,55 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart2, TrendingUp, Cpu, Award, FileQuestion } from 'lucide-react';
-import { motion } from 'framer-motion';
+import axios from 'axios';
+import { BarChart2, TrendingUp, Cpu, Award, Briefcase, Users } from 'lucide-react';
 
 export default function AnalyticsPage() {
-  const [analyticsData, setAnalyticsData] = useState({
-    totalAnalyzed: 0,
+  const [stats, setStats] = useState({
+    totalJobs: 0,
+    totalApplicants: 0,
     avgMatchScore: 0,
-    totalSkillsExtracted: 0,
     topSkills: []
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load evaluated resumes from history (stored during Dashboard analysis)
-    const storedHistory = localStorage.getItem('resume_analysis_history');
-    if (storedHistory) {
+    const fetchAnalytics = async () => {
       try {
-        const history = JSON.parse(storedHistory);
-        if (Array.isArray(history) && history.length > 0) {
-          const totalAnalyzed = history.length;
-          const totalScore = history.reduce((acc, item) => acc + (item.matchScore || 0), 0);
-          const avgMatchScore = (totalScore / totalAnalyzed).toFixed(1);
-
-          // Aggregate skills frequency
-          const skillCounts = {};
-          let allExtractedSkillsCount = 0;
-
-          history.forEach(item => {
-            const skills = item.extractedSkills || [];
-            allExtractedSkillsCount += skills.length;
-            skills.forEach(skill => {
-              const cleaned = skill.trim();
-              skillCounts[cleaned] = (skillCounts[cleaned] || 0) + 1;
-            });
-          });
-
-          const sortedSkills = Object.entries(skillCounts)
-            .map(([name, count]) => ({
-              name,
-              count,
-              demand: `${Math.round((count / totalAnalyzed) * 100)}%`
-            }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 6);
-
-          setAnalyticsData({
-            totalAnalyzed,
-            avgMatchScore,
-            totalSkillsExtracted: allExtractedSkillsCount,
-            topSkills: sortedSkills
-          });
+        const res = await axios.get('/api/analytics');
+        if (res.data && res.data.data) {
+          setStats(res.data.data);
         }
       } catch (err) {
-        console.error("Failed to parse analysis history:", err);
+        console.warn('Could not fetch analytics:', err.message);
+        setStats({
+          totalJobs: 0,
+          totalApplicants: 0,
+          avgMatchScore: 0,
+          topSkills: []
+        });
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    fetchAnalytics();
   }, []);
 
   const metricCards = [
-    { title: "Total Resumes Analyzed", value: analyticsData.totalAnalyzed.toString(), desc: "Processed evaluations", icon: Cpu, color: "text-indigo-400" },
-    { title: "Avg Match Score", value: `${analyticsData.avgMatchScore}%`, desc: "System-wide alignment", icon: TrendingUp, color: "text-emerald-400" },
-    { title: "Skills Extracted", value: analyticsData.totalSkillsExtracted.toString(), desc: "Across analyzed resumes", icon: Award, color: "text-purple-400" },
+    { title: "Active Job Openings", value: stats.totalJobs.toString(), desc: "Positions posted by recruiters", icon: Briefcase, color: "text-indigo-400" },
+    { title: "Total Applications", value: stats.totalApplicants.toString(), desc: "Ranked candidate evaluations", icon: Users, color: "text-emerald-400" },
+    { title: "Avg Match Score", value: `${stats.avgMatchScore}%`, desc: "System-wide role alignment", icon: TrendingUp, color: "text-purple-400" },
   ];
 
   return (
-    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       {/* Header */}
-      <div className="glass-card p-6 rounded-2xl">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <BarChart2 className="w-5 h-5 text-indigo-400" /> Analytics & Skill Insights
-        </h2>
-        <p className="text-xs text-slate-400 mt-1">
-          Real-time metrics on parsing efficiency, skill frequencies, and candidate alignment score distributions.
+      <div className="clean-panel p-5 rounded-xl border border-slate-800">
+        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+          Talent Intelligence
+        </span>
+        <h1 className="text-xl font-bold text-white mt-1">Recruitment Analytics & Skill Demand</h1>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Real-time metrics on candidate matching score distributions and in-demand skills aggregated across all job postings.
         </p>
       </div>
 
@@ -81,57 +58,53 @@ export default function AnalyticsPage() {
         {metricCards.map((m, i) => {
           const Icon = m.icon;
           return (
-            <motion.div
+            <div
               key={i}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className="glass-card p-5 rounded-2xl flex items-center justify-between"
+              className="clean-panel p-4 rounded-xl border border-slate-800 flex items-center justify-between"
             >
               <div>
                 <span className="text-xs text-slate-400 font-medium">{m.title}</span>
-                <div className="text-2xl font-bold text-white mt-1">{m.value}</div>
-                <span className="text-[10px] text-indigo-400 font-medium mt-0.5 block">{m.desc}</span>
+                <div className="text-2xl font-bold text-white mt-0.5">{m.value}</div>
+                <span className="text-[10px] text-slate-500 mt-0.5 block">{m.desc}</span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center">
-                <Icon className={`w-6 h-6 ${m.color}`} />
+              <div className="w-10 h-10 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
+                <Icon className={`w-5 h-5 ${m.color}`} />
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
 
-      {/* Skill Demand Breakdown */}
-      <div className="glass-card p-6 rounded-2xl">
-        <h3 className="text-sm font-semibold text-white mb-4">Top Extracted In-Demand Skills</h3>
-        {analyticsData.topSkills.length > 0 ? (
-          <div className="space-y-4">
-            {analyticsData.topSkills.map((skill, index) => (
+      {/* Top Skills Demand Horizontal Bars */}
+      <div className="clean-panel p-5 rounded-xl border border-slate-800 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-white">Most In-Demand Skills</h2>
+            <p className="text-xs text-slate-400">Frequency of technical keywords across posted jobs and candidate pools</p>
+          </div>
+          <span className="text-xs text-indigo-400 font-medium">Aggregated Live</span>
+        </div>
+
+        {stats.topSkills.length > 0 ? (
+          <div className="space-y-3 pt-1">
+            {stats.topSkills.map((skill, index) => (
               <div key={index} className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-200 font-medium">{skill.name}</span>
-                  <span className="text-slate-400 font-mono">{skill.count} candidate(s) ({skill.demand})</span>
+                  <span className="text-slate-200 font-medium capitalize">{skill.name}</span>
+                  <span className="text-slate-400 font-mono text-[11px]">{skill.demandPct}% frequency</span>
                 </div>
-                <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
                   <div 
-                    className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-full rounded-full"
-                    style={{ width: skill.demand }}
+                    className="bg-indigo-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${skill.demandPct}%` }}
                   ></div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-slate-800/80 border border-slate-700/60 text-slate-400 flex items-center justify-center">
-              <FileQuestion className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-300">No Analytics Data Available Yet</p>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                Run resume evaluations on the Dashboard to populate skill frequencies and score analytics.
-              </p>
-            </div>
+          <div className="py-8 text-center text-xs text-slate-500">
+            No skill statistics available yet. Post jobs and evaluate resumes to populate analytics.
           </div>
         )}
       </div>
