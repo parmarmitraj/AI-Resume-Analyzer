@@ -1,61 +1,161 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { Brain, LayoutDashboard, Users, BarChart2, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import AuthModal from './AuthModal';
+import { 
+  Home,
+  Briefcase, 
+  Users, 
+  FileText, 
+  BarChart3, 
+  Sparkles, 
+  LogIn, 
+  LogOut, 
+  UserCheck, 
+  Layers
+} from 'lucide-react';
 
 export default function Navbar() {
-  const navItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Candidate Database', path: '/resumes', icon: Users },
-    { name: 'Analytics', path: '/analytics', icon: BarChart2 },
-  ];
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
+  const { user, logout } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+
+  // Strictly tailor navigation options according to role
+  let navItems = [];
+  if (user?.role === 'candidate') {
+    // Candidate / Job Seeker options only
+    navItems = [
+      { name: 'Jobs & Matching', path: '/jobs', icon: Briefcase },
+      { name: 'My Applications', path: '/applications', icon: Layers },
+      { name: 'Resume Auditor', path: '/auditor', icon: FileText },
+    ];
+  } else if (user?.role === 'recruiter') {
+    // Recruiter / Hiring Manager options only
+    navItems = [
+      { name: 'Recruiter Hub', path: '/recruiter', icon: Users },
+      { name: 'Active Openings', path: '/jobs', icon: Briefcase },
+      { name: 'Talent Analytics', path: '/analytics', icon: BarChart3 },
+      { name: 'Resume Auditor', path: '/auditor', icon: FileText },
+    ];
+  } else {
+    // Unauthenticated guest options (when visiting inner pages)
+    navItems = [
+      { name: 'Explore Jobs', path: '/jobs', icon: Briefcase },
+      { name: 'Resume Auditor', path: '/auditor', icon: FileText },
+      { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+    ];
+  }
+
+  // Show nav tabs only if logged in OR if exploring an inner page
+  const showNavTabs = Boolean(user) || !isHomePage;
+
+  // Dynamic brand logo target based on role
+  const brandDestination = user?.role === 'recruiter' 
+    ? '/recruiter' 
+    : user?.role === 'candidate' 
+    ? '/jobs' 
+    : '/';
+
+  const handleOpenAuth = (mode) => {
+    setAuthMode(mode);
+    setShowAuthModal(true);
+  };
 
   return (
-    <header className="relative z-20 glass-panel border-b border-slate-800/80 sticky top-0 px-6 py-4 flex items-center justify-between">
-      {/* Brand Logo */}
-      <NavLink to="/" className="flex items-center gap-3 group">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 p-[2px] transition-transform group-hover:scale-105">
-          <div className="w-full h-full bg-[#0b0f19] rounded-[10px] flex items-center justify-center">
-            <Brain className="w-5 h-5 text-indigo-400" />
+    <>
+      <header className="sticky top-0 z-40 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          {/* Brand Logo - Routes according to role */}
+          <NavLink to={brandDestination} className="flex items-center gap-2.5 group shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-sm">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="font-semibold text-sm tracking-tight text-white group-hover:text-indigo-400 transition-colors">
+                AI Resume Matcher
+              </span>
+              <span className="hidden sm:inline-block ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60">
+                v2.0
+              </span>
+            </div>
+          </NavLink>
+
+          {/* Navigation Tabs - Visible after login or on inner pages */}
+          {showNavTabs && (
+            <nav className="hidden md:flex items-center gap-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end={item.end}
+                    className={({ isActive }) =>
+                      `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        isActive
+                          ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      }`
+                    }
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{item.name}</span>
+                  </NavLink>
+                );
+              })}
+            </nav>
+          )}
+
+          {/* Auth Controls */}
+          <div className="flex items-center gap-2">
+            {user ? (
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
+                <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="font-medium text-white truncate max-w-[120px]">{user.name}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded uppercase font-semibold ${
+                  user.role === 'recruiter' 
+                    ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' 
+                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                }`}>
+                  {user.role}
+                </span>
+                <button
+                  onClick={logout}
+                  title="Sign Out"
+                  className="text-slate-500 hover:text-rose-400 ml-1 p-0.5 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => handleOpenAuth('login')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => handleOpenAuth('register')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-colors flex items-center gap-1"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Register</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            ResuAI <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">v2.0</span>
-          </h1>
-          <p className="text-xs text-slate-400">AI Resume Analyzer & Matcher</p>
-        </div>
-      </NavLink>
+      </header>
 
-      {/* Navigation Links */}
-      <nav className="hidden md:flex items-center gap-1 glass-card p-1.5 rounded-xl border border-slate-800">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) =>
-                `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/20'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                }`
-              }
-            >
-              <Icon className="w-4 h-4" />
-              {item.name}
-            </NavLink>
-          );
-        })}
-      </nav>
-
-      {/* Engine Status */}
-      <div className="flex items-center gap-4">
-        <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 glass-card px-3 py-1.5 rounded-lg border border-slate-800">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          NLP Engine Ready
-        </div>
-      </div>
-    </header>
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialMode={authMode}
+      />
+    </>
   );
 }

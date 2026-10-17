@@ -9,36 +9,36 @@ export default function JobDescriptionInput({
   disabled 
 }) {
   return (
-    <div className="glass-card p-6 rounded-2xl">
-      <h2 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
-        <Sparkles className="w-5 h-5 text-purple-400" /> Target Job Description
+    <div className="clean-panel p-5 rounded-xl border border-slate-800">
+      <h2 className="text-sm font-semibold text-white mb-1 flex items-center gap-2">
+        <Sparkles className="w-4 h-4 text-indigo-400" /> Target Job Description
       </h2>
-      <p className="text-xs text-slate-400 mb-4">Paste the target JD to calculate match percentage & skill gaps</p>
+      <p className="text-xs text-slate-400 mb-3">Paste the target JD to calculate match percentage & skill gaps</p>
 
       <textarea
         value={jobDescription}
         onChange={(e) => setJobDescription(e.target.value)}
-        placeholder="Paste job title, required skills, responsibilities..."
-        rows={5}
-        className="w-full bg-slate-900/60 border border-slate-700/70 rounded-xl p-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none"
+        placeholder="Paste complete job description requirements here..."
+        rows={6}
+        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors resize-none leading-relaxed font-mono"
       />
 
       <button
         onClick={onAnalyze}
         disabled={disabled || isAnalyzing}
-        className={`w-full mt-4 py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all ${
+        className={`w-full mt-3 py-2 px-4 rounded-lg font-medium text-xs flex items-center justify-center gap-2 transition-all ${
           disabled || isAnalyzing
             ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-            : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:opacity-95 text-white shadow-lg shadow-indigo-500/25 active:scale-[0.99]'
+            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm'
         }`}
       >
         {isAnalyzing ? (
           <>
-            <RefreshCw className="w-4 h-4 animate-spin" /> Analyzing Resume...
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Evaluating Resume...
           </>
         ) : (
           <>
-            <Zap className="w-4 h-4" /> Run AI Match & Analysis
+            <Zap className="w-3.5 h-3.5" /> Run AI Match & Analysis
           </>
         )}
       </button>
