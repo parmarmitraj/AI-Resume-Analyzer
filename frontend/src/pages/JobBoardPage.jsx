@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { NavLink } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -17,7 +18,8 @@ import {
   Filter,
   Check,
   X,
-  UserCheck
+  UserCheck,
+  Users
 } from 'lucide-react';
 
 export default function JobBoardPage() {
@@ -44,6 +46,10 @@ export default function JobBoardPage() {
       const res = await axios.get('/api/jobs');
       if (res.data && res.data.data) {
         setJobs(res.data.data);
+        const applied = new Set(
+          res.data.data.filter(j => j.hasApplied).map(j => j._id)
+        );
+        setAppliedJobs(applied);
       }
     } catch (err) {
       console.warn('Could not fetch jobs from backend:', err.message);
@@ -55,7 +61,7 @@ export default function JobBoardPage() {
 
   useEffect(() => {
     fetchJobs();
-  }, []);
+  }, [user]);
 
   // Handle student resume upload to match across all jobs
   const handleResumeUpload = async (e) => {
@@ -86,31 +92,40 @@ export default function JobBoardPage() {
 
   // Student applies to a specific job
   const handleApply = async (job) => {
-    if (!resumeFile) {
-      alert('Please upload your resume PDF first to apply.');
+    if (!resumeFile && !user?.saved_resume_filename) {
+      alert('Please upload your resume PDF or save a resume in your profile first to apply.');
       return;
     }
 
     setApplyingJobId(job._id);
     setApplySuccessMsg('');
 
-    const formData = new FormData();
-    formData.append('resume', resumeFile);
-    formData.append('candidate_name', resumeFile.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '));
-
     try {
-      const res = await axios.post(`/api/jobs/${job._id}/apply`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      let res;
+      if (resumeFile) {
+        const formData = new FormData();
+        formData.append('resume', resumeFile);
+        formData.append('candidate_name', user?.name || resumeFile.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '));
+        formData.append('candidate_email', user?.email || '');
+        res = await axios.post(`/api/jobs/${job._id}/apply`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        // Apply with locked profile resume
+        res = await axios.post(`/api/jobs/${job._id}/apply`, {
+          use_saved_resume: true,
+          candidate_name: user?.name || '',
+          candidate_email: user?.email || ''
+        });
+      }
 
       setAppliedJobs(prev => new Set(prev).add(job._id));
-      setApplySuccessMsg(`Application submitted for "${job.title}"! Recruiter will see your ranked score.`);
-      setTimeout(() => setApplySuccessMsg(''), 5000);
+      const resumeUsed = resumeFile ? resumeFile.name : (user?.saved_resume_filename || 'Profile Resume');
+      setApplySuccessMsg(`Application submitted for "${job.title}" using "${resumeUsed}"! Recruiter will see your ranked score.`);
+      setTimeout(() => setApplySuccessMsg(''), 6000);
     } catch (err) {
-      console.warn('Apply API error, marking applied locally:', err.message);
-      setAppliedJobs(prev => new Set(prev).add(job._id));
-      setApplySuccessMsg(`Application recorded for "${job.title}"!`);
-      setTimeout(() => setApplySuccessMsg(''), 5000);
+      console.warn('Apply API error:', err.response?.data?.message || err.message);
+      alert(`Could not submit application: ${err.response?.data?.message || err.message}`);
     } finally {
       setApplyingJobId(null);
     }
@@ -135,43 +150,74 @@ export default function JobBoardPage() {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                Student & Candidate Portal
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
+                user?.role === 'recruiter'
+                  ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                  : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+              }`}>
+                {user?.role === 'recruiter' ? 'Recruiter Company View' : 'Student & Candidate Portal'}
               </span>
-              <span className="text-xs text-slate-400">Live AI Match Engine</span>
+              <span className="text-xs text-slate-400">
+                {user?.role === 'recruiter' ? (user?.company || 'Your Company') : 'Live AI Match Engine'}
+              </span>
             </div>
-            <h1 className="text-xl font-bold text-white mt-1">Explore Open Positions & Match Scores</h1>
+            <h1 className="text-xl font-bold text-white mt-1">
+              {user?.role === 'recruiter' 
+                ? (user?.company ? `${user.company} Active Openings` : 'Your Active Openings')
+                : 'Explore Open Positions & Match Scores'}
+            </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Upload your resume once to compute your matching percentage across all active job postings.
+              {user?.role === 'recruiter' ? (
+                `Displaying openings posted under ${user?.company || 'your company'}.`
+              ) : resumeFile ? (
+                <>Evaluating match scores with alternate resume: <span className="text-indigo-300 font-medium">{resumeFile.name}</span></>
+              ) : user?.saved_resume_filename ? (
+                <>Matched automatically against your locked resume: <span className="text-emerald-300 font-medium">{user.saved_resume_filename}</span>. You can 1-click apply instantly.</>
+              ) : (
+                'Upload your resume once to compute your matching percentage across all active job postings.'
+              )}
             </p>
           </div>
 
-          {/* Minimal Upload Button */}
-          <div className="w-full md:w-auto flex flex-wrap items-center gap-3">
-            <label className="cursor-pointer flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-sm">
-              <Upload className="w-4 h-4" />
-              <span>{resumeFile ? 'Change Resume PDF' : 'Upload Resume PDF'}</span>
-              <input 
-                type="file" 
-                accept=".pdf" 
-                onChange={handleResumeUpload}
-                className="hidden" 
-              />
-            </label>
+          {/* Minimal Upload Button (Candidates only) */}
+          {user?.role !== 'recruiter' && (
+            <div className="w-full md:w-auto flex flex-wrap items-center gap-3">
+              <label className="cursor-pointer flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-sm">
+                <Upload className="w-4 h-4" />
+                <span>{resumeFile ? 'Change Alternate PDF' : (user?.saved_resume_filename ? 'Upload Alternate PDF' : 'Upload Resume PDF')}</span>
+                <input 
+                  type="file" 
+                  accept=".pdf" 
+                  onChange={handleResumeUpload}
+                  className="hidden" 
+                />
+              </label>
 
-            {resumeFile ? (
-              <div className="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-900 px-3 py-2 rounded-lg border border-slate-800">
-                <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                <span className="truncate max-w-[160px] font-medium">{resumeFile.name}</span>
-                {isMatching && <span className="text-indigo-400 animate-pulse text-[11px]">(Evaluating...)</span>}
-              </div>
-            ) : user?.saved_resume_filename ? (
-              <div className="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-900 px-3 py-2 rounded-lg border border-slate-800">
-                <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="truncate max-w-[160px] font-medium text-emerald-300">Locker: {user.saved_resume_filename}</span>
-              </div>
-            ) : null}
-          </div>
+              {resumeFile ? (
+                <div className="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-900 px-3 py-2 rounded-lg border border-slate-800">
+                  <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <span className="truncate max-w-[160px] font-medium">{resumeFile.name}</span>
+                  {isMatching && <span className="text-indigo-400 animate-pulse text-[11px]">(Evaluating...)</span>}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResumeFile(null);
+                      fetchJobs();
+                    }}
+                    title="Revert to locked resume"
+                    className="ml-1 text-slate-500 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : user?.saved_resume_filename ? (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-950/30 px-3 py-2 rounded-lg border border-emerald-800/60">
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="truncate max-w-[180px] font-medium">Locked Resume: {user.saved_resume_filename}</span>
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
 
         {/* Global Success Notification */}
@@ -196,7 +242,7 @@ export default function JobBoardPage() {
           />
         </div>
 
-        {resumeFile && (
+        {(resumeFile || user?.saved_resume_filename || jobs.some(j => typeof j.matchScore === 'number')) && (
           <div className="flex items-center gap-3 w-full sm:w-auto text-xs text-slate-400">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
             <span>Min Match Score:</span>
@@ -318,30 +364,42 @@ export default function JobBoardPage() {
                       <span>View Skill Breakdown</span>
                       <ArrowRight className="w-3 h-3" />
                     </button>
+                  ) : user?.saved_resume_filename ? (
+                    <span className="text-[11px] text-emerald-400 font-medium">Locker Resume Ready</span>
                   ) : (
                     <span className="text-[11px] text-slate-500">Requires Resume PDF</span>
                   )}
 
-                  <button
-                    disabled={isApplied || applyingJobId === job._id}
-                    onClick={() => handleApply(job)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
-                      isApplied
-                        ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-800/60 cursor-default'
-                        : 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                    }`}
-                  >
-                    {isApplied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Applied</span>
-                      </>
-                    ) : applyingJobId === job._id ? (
-                      <span>Submitting...</span>
-                    ) : (
-                      <span>Apply Now</span>
-                    )}
-                  </button>
+                  {user?.role === 'recruiter' ? (
+                    <NavLink
+                      to="/recruiter"
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 hover:bg-purple-500 text-white transition-all flex items-center gap-1.5"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>Review in Hub</span>
+                    </NavLink>
+                  ) : (
+                    <button
+                      disabled={isApplied || applyingJobId === job._id}
+                      onClick={() => handleApply(job)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                        isApplied
+                          ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-800/60 cursor-default'
+                          : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                      }`}
+                    >
+                      {isApplied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Applied</span>
+                        </>
+                      ) : applyingJobId === job._id ? (
+                        <span>Submitting...</span>
+                      ) : (
+                        <span>Apply Now</span>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             );

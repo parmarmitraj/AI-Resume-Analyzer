@@ -35,7 +35,6 @@ export default function RecruiterPortal() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newJob, setNewJob] = useState({
     title: '',
-    company: '',
     job_role: '',
     experience_level: 'Mid',
     location_type: 'Remote',
@@ -55,7 +54,7 @@ export default function RecruiterPortal() {
   // Search filter
   const [applicantSearch, setApplicantSearch] = useState('');
 
-  // Fetch all jobs
+  // Fetch all jobs for this recruiter's company
   const fetchJobs = async () => {
     setLoadingJobs(true);
     try {
@@ -75,7 +74,7 @@ export default function RecruiterPortal() {
 
   useEffect(() => {
     fetchJobs();
-  }, []);
+  }, [user]);
 
   // Fetch applicants for selected job (automatically sorted by match score DESC by backend)
   const handleSelectJob = async (job) => {
@@ -95,7 +94,7 @@ export default function RecruiterPortal() {
     }
   };
 
-  // Create new job posting
+  // Create new job posting (company is automatically inherited from recruiter profile)
   const handleCreateJob = async (e) => {
     e.preventDefault();
     if (!newJob.title || !newJob.job_description) {
@@ -113,7 +112,6 @@ export default function RecruiterPortal() {
         setShowCreateModal(false);
         setNewJob({
           title: '',
-          company: '',
           job_role: '',
           experience_level: 'Mid',
           location_type: 'Remote',
@@ -259,15 +257,25 @@ export default function RecruiterPortal() {
       {/* Header & Job Creation Button */}
       <div className="clean-panel rounded-xl p-5 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
               Recruiter Command Hub
             </span>
-            <span className="text-xs text-slate-400">Automated Match Score Sorting</span>
+            {user?.company && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/80 flex items-center gap-1">
+                <Building2 className="w-3 h-3 text-indigo-400" />
+                {user.company}
+              </span>
+            )}
+            <span className="text-xs text-slate-400">Company Portal</span>
           </div>
-          <h1 className="text-xl font-bold text-white mt-1">Job Postings & Applicant Leaderboard</h1>
+          <h1 className="text-xl font-bold text-white mt-1">
+            {user?.company ? `${user.company} Job Openings & Leaderboard` : 'Job Postings & Applicant Leaderboard'}
+          </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Post job openings and let the AI automatically rank all incoming student applicants by matching score.
+            {user?.company 
+              ? `Manage active positions and review ranked applicant leaderboards for ${user.company}.`
+              : 'Post job openings and let the AI automatically rank all incoming student applicants by matching score.'}
           </p>
         </div>
 
@@ -286,7 +294,7 @@ export default function RecruiterPortal() {
         <div className="lg:col-span-4 space-y-3">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Active Openings ({jobs.length})
+              {user?.company ? `${user.company} Openings` : 'Company Openings'} ({jobs.length})
             </h2>
           </div>
 
@@ -296,7 +304,7 @@ export default function RecruiterPortal() {
             </div>
           ) : jobs.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-400 clean-panel rounded-xl">
-              No jobs posted yet. Click "Post New Job" above.
+              No jobs posted yet for {user?.company || 'your company'}. Click "Post New Job" above.
             </div>
           ) : (
             <div className="space-y-2">
@@ -663,25 +671,16 @@ export default function RecruiterPortal() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-slate-300 block mb-1">Company / Department</label>
-                  <input
-                    type="text"
-                    value={newJob.company}
-                    onChange={(e) => setNewJob({ ...newJob, company: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-300 block mb-1">Job Role</label>
-                  <input
-                    type="text"
-                    value={newJob.job_role}
-                    onChange={(e) => setNewJob({ ...newJob, job_role: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
+              <div>
+                <label className="text-xs font-medium text-slate-300 block mb-1">Job Role / Discipline *</label>
+                <input
+                  type="text"
+                  required
+                  value={newJob.job_role}
+                  onChange={(e) => setNewJob({ ...newJob, job_role: e.target.value })}
+                  placeholder="e.g. Frontend Engineer, ML Specialist, DevOps"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                />
               </div>
 
               <div className="grid grid-cols-3 gap-3">

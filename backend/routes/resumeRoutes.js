@@ -15,6 +15,9 @@ router.post('/student/analyze', upload.single('resume'), resumeController.analyz
 // Also alias /analyze for backward compatibility with frontend Dashboard
 router.post('/analyze', upload.single('resume'), resumeController.analyzeSingleResume);
 
+// Bulk Multi-Resume Analysis against custom JD (Recruiter side)
+router.post('/auditor/analyze-bulk', upload.array('resumes', 30), resumeController.analyzeMultipleResumes);
+
 // Analytics & Insights
 router.get('/analytics', resumeController.getAnalytics);
 

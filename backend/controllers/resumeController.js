@@ -140,4 +140,80 @@ exports.getAnalytics = async (req, res) => {
   }
 };
 
+/**
+ * Ad-Hoc Multi-Resume Screening against custom Job Description
+ * Allows recruiters to upload and evaluate multiple candidate resumes simultaneously
+ */
+exports.analyzeMultipleResumes = async (req, res) => {
+  try {
+    const files = req.files || (req.file ? [req.file] : []);
+    if (!files || files.length === 0) {
+      return res.status(400).json({ status: 'error', message: 'Please upload at least one PDF resume.' });
+    }
+
+    const { job_description, job_role } = req.body;
+    if (!job_description || !job_description.trim()) {
+      return res.status(400).json({ status: 'error', message: 'Job description cannot be empty.' });
+    }
+
+    const targetRole = job_role || 'Software Engineer';
+    const rankedResults = [];
+
+    for (const file of files) {
+      if (!file.originalname || !file.originalname.toLowerCase().endsWith('.pdf')) continue;
+
+      try {
+        const resumeText = await extractTextFromPDF(file.buffer);
+        const match = calculateMatch(resumeText, job_description.trim());
+
+        const feedback = await generateFeedback({
+          matchResults: match,
+          resumeText,
+          jdText: job_description.trim(),
+          jobRole: targetRole
+        });
+
+        const candidateName = file.originalname.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+
+        rankedResults.push({
+          id: 'res_' + Date.now() + Math.random().toString(36).substr(2, 5),
+          fileName: file.originalname,
+          candidateName,
+          matchScore: match.final_match_pct,
+          skillScore: match.skill_score_pct,
+          contextScore: match.context_score_pct,
+          genuineScore: feedback?.genuine_score || match.final_match_pct,
+          extractedSkills: match.matched_skills || [],
+          missingSkills: match.missing_skills || [],
+          allExtractedSkills: match.all_resume_skills || [],
+          summary: feedback?.summary || 'Evaluated successfully.',
+          feedback: Array.isArray(feedback?.improvement_tips) ? feedback.improvement_tips : [],
+          date: new Date().toISOString().split('T')[0]
+        });
+      } catch (err) {
+        console.warn(`Error analyzing ${file.originalname}:`, err.message);
+      }
+    }
+
+    if (rankedResults.length === 0) {
+      return res.status(400).json({ status: 'error', message: 'Could not extract text from provided PDF resumes.' });
+    }
+
+    // Sort descending by matchScore
+    rankedResults.sort((a, b) => b.matchScore - a.matchScore);
+    rankedResults.forEach((r, idx) => {
+      r.rank = idx + 1;
+    });
+
+    return res.status(200).json({
+      status: 'success',
+      total_screened: rankedResults.length,
+      data: rankedResults
+    });
+  } catch (error) {
+    console.error('Error in analyzeMultipleResumes:', error);
+    return res.status(500).json({ status: 'error', message: error.message });
+  }
+};
+
 

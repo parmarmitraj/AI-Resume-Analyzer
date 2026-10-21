@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { X, Lock, Mail, User, Building2, Briefcase, Sparkles } from 'lucide-react';
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
+  const navigate = useNavigate();
   const { login, register } = useAuth();
   const [mode, setMode] = useState(initialMode); // 'login' or 'register'
   const [formData, setFormData] = useState({
@@ -23,12 +25,18 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
     setLoading(true);
 
     try {
+      let authUser;
       if (mode === 'login') {
-        await login(formData.email, formData.password);
+        authUser = await login(formData.email, formData.password);
       } else {
-        await register(formData);
+        authUser = await register(formData);
       }
       onClose();
+      if (authUser?.role === 'recruiter') {
+        navigate('/recruiter');
+      } else {
+        navigate('/jobs');
+      }
     } catch (err) {
       setErrorMsg(err.response?.data?.message || err.message || 'Authentication failed');
     } finally {

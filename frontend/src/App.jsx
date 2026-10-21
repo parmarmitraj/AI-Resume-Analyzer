@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
 import JobBoardPage from './pages/JobBoardPage';
 import RecruiterPortal from './pages/RecruiterPortal';
@@ -20,23 +21,58 @@ export default function App() {
           {/* Page Content */}
           <main className="flex-1">
             <Routes>
-              {/* Default Home Landing Page */}
+              {/* Public Home Landing Page */}
               <Route path="/" element={<HomePage />} />
               
-              {/* Student Job Board & Matching */}
-              <Route path="/jobs" element={<JobBoardPage />} />
+              {/* Protected Student Job Board & Matching */}
+              <Route 
+                path="/jobs" 
+                element={
+                  <ProtectedRoute>
+                    <JobBoardPage />
+                  </ProtectedRoute>
+                } 
+              />
               
-              {/* Recruiter Job Posting & Leaderboard */}
-              <Route path="/recruiter" element={<RecruiterPortal />} />
+              {/* Protected Recruiter Command Hub */}
+              <Route 
+                path="/recruiter" 
+                element={
+                  <ProtectedRoute allowedRole="recruiter">
+                    <RecruiterPortal />
+                  </ProtectedRoute>
+                } 
+              />
               
-              {/* Candidate Application Tracker */}
-              <Route path="/applications" element={<MyApplicationsPage />} />
+              {/* Protected Candidate Application Tracker */}
+              <Route 
+                path="/applications" 
+                element={
+                  <ProtectedRoute allowedRole="candidate">
+                    <MyApplicationsPage />
+                  </ProtectedRoute>
+                } 
+              />
               
-              {/* Standalone Custom Resume Auditor */}
-              <Route path="/auditor" element={<Dashboard />} />
+              {/* Protected Standalone Custom Resume Auditor */}
+              <Route 
+                path="/auditor" 
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
               
-              {/* System Intelligence Analytics */}
-              <Route path="/analytics" element={<AnalyticsPage />} />
+              {/* Protected System Intelligence Analytics */}
+              <Route 
+                path="/analytics" 
+                element={
+                  <ProtectedRoute>
+                    <AnalyticsPage />
+                  </ProtectedRoute>
+                } 
+              />
               
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />

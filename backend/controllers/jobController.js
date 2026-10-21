@@ -1,5 +1,6 @@
 const JobPosting = require('../models/JobPosting');
 const Application = require('../models/Application');
+const User = require('../models/User');
 const { isMongoConnected, memoryStore } = require('../config/db');
 const { extractTextFromPDF } = require('../services/pdfService');
 const { extractSkills } = require('../services/skillExtractor');
@@ -14,7 +15,6 @@ exports.createJob = async (req, res) => {
   try {
     const {
       title,
-      company,
       job_role,
       experience_level,
       location_type,
@@ -37,8 +37,23 @@ exports.createJob = async (req, res) => {
       ...(Array.isArray(custom_skills) ? custom_skills.map(s => s.toLowerCase().trim()) : [])
     ]));
 
+    // Inherit company automatically from the authenticated recruiter profile
+    let finalCompany = '';
     const recruiterId = req.user ? req.user.id : null;
-    const finalCompany = (req.user && req.user.company) ? req.user.company : (company ? company.trim() : '');
+
+    if (req.user) {
+      let userRecord = null;
+      if (isMongoConnected()) {
+        userRecord = await User.findById(req.user.id).lean();
+      } else {
+        userRecord = (memoryStore.users || []).find(u => u._id.toString() === req.user.id.toString());
+      }
+      if (userRecord && userRecord.company) {
+        finalCompany = userRecord.company.trim();
+      } else if (req.user.company) {
+        finalCompany = req.user.company.trim();
+      }
+    }
 
     const jobData = {
       title: title.trim(),
@@ -74,22 +89,119 @@ exports.createJob = async (req, res) => {
 };
 
 /**
- * Get all active Job Postings (with applicant counts)
+ * Get all active Job Postings
+ * Candidates see all active jobs across companies.
+ * Recruiters ONLY see the openings in their own company.
  */
 exports.getJobs = async (req, res) => {
   try {
     let jobs = [];
+    let userRecord = null;
+    let appliedJobIds = new Set();
+
+    if (req.user) {
+      if (isMongoConnected()) {
+        userRecord = await User.findById(req.user.id).lean();
+      } else {
+        userRecord = (memoryStore.users || []).find(u => u._id.toString() === req.user.id.toString());
+      }
+    }
+
+    const userRole = (userRecord && userRecord.role) || (req.user && req.user.role);
+    const isRecruiter = userRole === 'recruiter';
+    const recruiterCompany = ((userRecord && userRecord.company) || (req.user && req.user.company) || '').trim();
+
     if (isMongoConnected()) {
-      jobs = await JobPosting.find().sort({ createdAt: -1 }).lean();
+      let query = {};
+
+      // If recruiter, strictly filter to openings in their company or created by them
+      if (isRecruiter) {
+        const conditions = [];
+        if (req.user && req.user.id) {
+          conditions.push({ recruiter_id: req.user.id });
+        }
+        if (recruiterCompany) {
+          conditions.push({ company: new RegExp(`^${recruiterCompany}$`, 'i') });
+        }
+        query = conditions.length > 0 ? { $or: conditions } : { recruiter_id: req.user.id };
+      }
+
+      jobs = await JobPosting.find(query)
+        .populate('recruiter_id', 'company name email')
+        .sort({ createdAt: -1 })
+        .lean();
       
-      // Attach applicant counts
+      // Attach applicant counts and fallback company from recruiter
       for (const job of jobs) {
+        if (!job.company && job.recruiter_id && job.recruiter_id.company) {
+          job.company = job.recruiter_id.company;
+        }
         job.applicant_count = await Application.countDocuments({ job_id: job._id });
       }
+
+      if (req.user && !isRecruiter) {
+        const userApps = await Application.find({
+          $or: [
+            { candidate_id: req.user.id },
+            { candidate_email: req.user.email }
+          ]
+        }, 'job_id').lean();
+        appliedJobIds = new Set(userApps.map(a => a.job_id.toString()));
+      }
     } else {
-      jobs = memoryStore.jobs.map(job => ({
+      let allJobs = memoryStore.jobs || [];
+
+      if (isRecruiter) {
+        const comp = recruiterCompany.toLowerCase();
+        allJobs = allJobs.filter(j => 
+          (req.user && j.recruiter_id && j.recruiter_id.toString() === req.user.id.toString()) ||
+          (comp && j.company && j.company.trim().toLowerCase() === comp)
+        );
+      }
+
+      jobs = allJobs.map(job => {
+        let comp = job.company;
+        if (!comp && job.recruiter_id) {
+          const rec = (memoryStore.users || []).find(u => u._id.toString() === job.recruiter_id.toString());
+          if (rec && rec.company) comp = rec.company;
+        }
+        return {
+          ...job,
+          company: comp || '',
+          applicant_count: (memoryStore.applications || []).filter(a => a.job_id.toString() === job._id.toString()).length
+        };
+      });
+
+      if (req.user && !isRecruiter) {
+        const userApps = (memoryStore.applications || []).filter(a => 
+          (a.candidate_id && a.candidate_id.toString() === req.user.id.toString()) ||
+          (a.candidate_email && a.candidate_email === req.user.email)
+        );
+        appliedJobIds = new Set(userApps.map(a => a.job_id.toString()));
+      }
+    }
+
+    // For candidates with a saved resume, compute personal match scores
+    if (!isRecruiter && userRecord && userRecord.saved_resume_text) {
+      jobs = jobs.map(job => {
+        const match = calculateMatch(userRecord.saved_resume_text, job.job_description);
+        return {
+          ...job,
+          matchScore: match.final_match_pct,
+          skillScore: match.skill_score_pct,
+          contextScore: match.context_score_pct,
+          matchedSkills: match.matched_skills,
+          missingSkills: match.missing_skills,
+          hasApplied: appliedJobIds.has(job._id.toString())
+        };
+      });
+
+      // Sort by matchScore descending
+      jobs.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+    } else if (!isRecruiter && req.user && appliedJobIds.size > 0) {
+      jobs = jobs.map(job => ({
         ...job,
-        applicant_count: memoryStore.applications.filter(a => a.job_id.toString() === job._id.toString()).length
+        hasApplied: appliedJobIds.has(job._id.toString())
       }));
     }
 
@@ -133,6 +245,31 @@ exports.getJobById = async (req, res) => {
 exports.deleteJob = async (req, res) => {
   try {
     const { id } = req.params;
+    let job;
+    if (isMongoConnected()) {
+      job = await JobPosting.findById(id);
+    } else {
+      job = memoryStore.jobs.find(j => j._id.toString() === id.toString());
+    }
+
+    if (!job) {
+      return res.status(404).json({ status: 'error', message: 'Job posting not found.' });
+    }
+
+    if (req.user && req.user.role === 'recruiter') {
+      let recruiterComp = (req.user.company || '').trim().toLowerCase();
+      if (!recruiterComp && isMongoConnected()) {
+        const recUser = await User.findById(req.user.id).lean();
+        if (recUser) recruiterComp = (recUser.company || '').trim().toLowerCase();
+      }
+      const jobCompany = (job.company || '').trim().toLowerCase();
+      const isOwner = job.recruiter_id && job.recruiter_id.toString() === req.user.id.toString();
+      const isSameCompany = recruiterComp && jobCompany && recruiterComp === jobCompany;
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ status: 'error', message: 'You are only authorized to delete openings for your own company.' });
+      }
+    }
+
     if (isMongoConnected()) {
       await JobPosting.findByIdAndDelete(id);
       await Application.deleteMany({ job_id: id });
@@ -148,18 +285,43 @@ exports.deleteJob = async (req, res) => {
 };
 
 /**
- * Student uploads a resume and evaluates it against ALL active Job Postings
+ * Student uploads a resume (or triggers match using locked profile resume) and evaluates it against ALL active Job Postings
  * Returns all jobs with a personalized matching score %
  */
 exports.matchJobsForResume = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ status: 'error', message: 'Please upload a resume PDF file.' });
+    let resumeText = '';
+    let resumeFilename = '';
+    let resumeSkills = [];
+
+    if (req.file) {
+      const resumeBuffer = req.file.buffer;
+      resumeText = await extractTextFromPDF(resumeBuffer);
+      resumeFilename = req.file.originalname;
+      resumeSkills = extractSkills(resumeText);
+    } else if (req.user) {
+      let userRecord = null;
+      if (isMongoConnected()) {
+        userRecord = await User.findById(req.user.id).lean();
+      } else {
+        userRecord = (memoryStore.users || []).find(u => u._id.toString() === req.user.id.toString());
+      }
+
+      if (userRecord && userRecord.saved_resume_text) {
+        resumeText = userRecord.saved_resume_text;
+        resumeFilename = userRecord.saved_resume_filename || 'locked_resume.pdf';
+        resumeSkills = userRecord.extracted_skills && userRecord.extracted_skills.length > 0
+          ? userRecord.extracted_skills
+          : extractSkills(resumeText);
+      }
     }
 
-    const resumeBuffer = req.file.buffer;
-    const resumeText = await extractTextFromPDF(resumeBuffer);
-    const resumeSkills = extractSkills(resumeText);
+    if (!resumeText) {
+      return res.status(400).json({ 
+        status: 'error', 
+        message: 'Please upload a resume PDF file or save a resume in your Profile Locker first.' 
+      });
+    }
 
     // Retrieve active jobs
     let jobs = [];
@@ -187,7 +349,7 @@ exports.matchJobsForResume = async (req, res) => {
 
     return res.status(200).json({
       status: 'success',
-      resume_filename: req.file.originalname,
+      resume_filename: resumeFilename,
       extracted_candidate_skills: resumeSkills,
       total_jobs_evaluated: evaluatedJobs.length,
       data: evaluatedJobs
@@ -199,7 +361,7 @@ exports.matchJobsForResume = async (req, res) => {
 };
 
 /**
- * Student applies to a specific job with resume
+ * Student applies to a specific job with resume (uploaded file OR locked profile resume)
  * Computes full score + Gemini coaching feedback and persists the application
  */
 exports.applyToJob = async (req, res) => {
@@ -207,8 +369,32 @@ exports.applyToJob = async (req, res) => {
     const { id } = req.params;
     const { candidate_name, candidate_email } = req.body;
 
-    if (!req.file) {
-      return res.status(400).json({ status: 'error', message: 'Resume PDF is required to apply.' });
+    let resumeText = '';
+    let resumeFilename = '';
+
+    if (req.file) {
+      const resumeBuffer = req.file.buffer;
+      resumeText = await extractTextFromPDF(resumeBuffer);
+      resumeFilename = req.file.originalname;
+    } else if (req.user) {
+      let userRecord = null;
+      if (isMongoConnected()) {
+        userRecord = await User.findById(req.user.id).lean();
+      } else {
+        userRecord = (memoryStore.users || []).find(u => u._id.toString() === req.user.id.toString());
+      }
+
+      if (userRecord && userRecord.saved_resume_text) {
+        resumeText = userRecord.saved_resume_text;
+        resumeFilename = userRecord.saved_resume_filename || 'locked_resume.pdf';
+      }
+    }
+
+    if (!resumeText) {
+      return res.status(400).json({ 
+        status: 'error', 
+        message: 'Resume PDF is required to apply. Please upload a resume or lock one in your Profile Locker.' 
+      });
     }
 
     // Retrieve job
@@ -223,8 +409,41 @@ exports.applyToJob = async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Target job posting not found.' });
     }
 
-    const resumeBuffer = req.file.buffer;
-    const resumeText = await extractTextFromPDF(resumeBuffer);
+    const candidateId = req.user ? req.user.id : null;
+    const candidateEmail = (req.user && req.user.email) ? req.user.email : (candidate_email ? candidate_email.trim() : '');
+    const parsedCandidateName = (req.user && req.user.name) 
+      ? req.user.name
+      : ((candidate_name && candidate_name.trim()) 
+          ? candidate_name.trim() 
+          : resumeFilename.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '));
+
+    // Check if candidate has already applied
+    if (candidateId || candidateEmail) {
+      let existingApp = null;
+      if (isMongoConnected()) {
+        existingApp = await Application.findOne({
+          job_id: job._id,
+          $or: [
+            ...(candidateId ? [{ candidate_id: candidateId }] : []),
+            ...(candidateEmail ? [{ candidate_email: candidateEmail }] : [])
+          ]
+        });
+      } else {
+        existingApp = (memoryStore.applications || []).find(a => 
+          a.job_id.toString() === job._id.toString() &&
+          ((candidateId && a.candidate_id?.toString() === candidateId.toString()) ||
+           (candidateEmail && a.candidate_email === candidateEmail))
+        );
+      }
+
+      if (existingApp) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'You have already submitted an application for this position.'
+        });
+      }
+    }
+
     const match = calculateMatch(resumeText, job.job_description);
 
     // AI Coaching Feedback
@@ -235,20 +454,12 @@ exports.applyToJob = async (req, res) => {
       jobRole: job.job_role
     });
 
-    const candidateId = req.user ? req.user.id : null;
-    const candidateEmail = (req.user && req.user.email) ? req.user.email : (candidate_email ? candidate_email.trim() : '');
-    const parsedCandidateName = (req.user && req.user.name) 
-      ? req.user.name
-      : ((candidate_name && candidate_name.trim()) 
-          ? candidate_name.trim() 
-          : req.file.originalname.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '));
-
     const applicationData = {
       job_id: job._id,
       candidate_id: candidateId,
       candidate_name: parsedCandidateName,
       candidate_email: candidateEmail,
-      resume_filename: req.file.originalname,
+      resume_filename: resumeFilename,
       final_match_pct: match.final_match_pct,
       skill_score_pct: match.skill_score_pct,
       context_score_pct: match.context_score_pct,
@@ -290,6 +501,29 @@ exports.applyToJob = async (req, res) => {
 exports.getJobApplicants = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (req.user && req.user.role === 'recruiter') {
+      let targetJob;
+      if (isMongoConnected()) {
+        targetJob = await JobPosting.findById(id).lean();
+      } else {
+        targetJob = (memoryStore.jobs || []).find(j => j._id.toString() === id.toString());
+      }
+      if (targetJob) {
+        let recruiterComp = (req.user.company || '').trim().toLowerCase();
+        if (!recruiterComp && isMongoConnected()) {
+          const recUser = await User.findById(req.user.id).lean();
+          if (recUser) recruiterComp = (recUser.company || '').trim().toLowerCase();
+        }
+        const jobCompany = (targetJob.company || '').trim().toLowerCase();
+        const isOwner = targetJob.recruiter_id && targetJob.recruiter_id.toString() === req.user.id.toString();
+        const isSameCompany = recruiterComp && jobCompany && recruiterComp === jobCompany;
+        if (!isOwner && !isSameCompany) {
+          return res.status(403).json({ status: 'error', message: 'Access denied. You can only view applicants for openings in your company.' });
+        }
+      }
+    }
+
     let applicants = [];
 
     if (isMongoConnected()) {
