@@ -1,5 +1,7 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import AuthModal from '../components/AuthModal';
 import { 
   Briefcase, 
   Users, 
@@ -16,6 +18,20 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+
+  const handleProtectedNavigate = (path) => {
+    if (user) {
+      navigate(path);
+    } else {
+      setAuthMode('login');
+      setShowAuthModal(true);
+    }
+  };
+
   const steps = [
     {
       num: '01',
@@ -57,30 +73,30 @@ export default function HomePage() {
 
         {/* Primary Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-          <NavLink
-            to="/jobs"
+          <button
+            onClick={() => handleProtectedNavigate('/jobs')}
             className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-2"
           >
             <Briefcase className="w-4 h-4" />
             <span>Explore Jobs & Test Match</span>
             <ArrowRight className="w-3.5 h-3.5" />
-          </NavLink>
+          </button>
 
-          <NavLink
-            to="/recruiter"
+          <button
+            onClick={() => handleProtectedNavigate('/recruiter')}
             className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold border border-slate-800 transition-all flex items-center justify-center gap-2"
           >
             <Users className="w-4 h-4 text-indigo-400" />
             <span>Recruiter Command Hub</span>
-          </NavLink>
+          </button>
 
-          <NavLink
-            to="/auditor"
+          <button
+            onClick={() => handleProtectedNavigate('/auditor')}
             className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
           >
             <FileText className="w-4 h-4" />
             <span>Ad-hoc Resume Auditor</span>
-          </NavLink>
+          </button>
         </div>
       </section>
 
@@ -121,13 +137,13 @@ export default function HomePage() {
               </ul>
             </div>
 
-            <NavLink
-              to="/jobs"
-              className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-semibold pt-4 border-t border-slate-800"
+            <button
+              onClick={() => handleProtectedNavigate('/jobs')}
+              className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-semibold pt-4 border-t border-slate-800 text-left"
             >
               <span>Browse Active Openings</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </NavLink>
+            </button>
           </div>
 
           {/* Recruiter Card */}
@@ -164,13 +180,13 @@ export default function HomePage() {
               </ul>
             </div>
 
-            <NavLink
-              to="/recruiter"
-              className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 font-semibold pt-4 border-t border-slate-800"
+            <button
+              onClick={() => handleProtectedNavigate('/recruiter')}
+              className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 font-semibold pt-4 border-t border-slate-800 text-left"
             >
               <span>Manage Job Openings & Leaderboards</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </NavLink>
+            </button>
           </div>
         </div>
       </section>
@@ -212,21 +228,28 @@ export default function HomePage() {
             Get started immediately. No complex onboarding or Python setup required.
           </p>
           <div className="flex justify-center gap-3 pt-2">
-            <NavLink
-              to="/jobs"
+            <button
+              onClick={() => handleProtectedNavigate('/jobs')}
               className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-colors"
             >
               Start Matching Resumes
-            </NavLink>
-            <NavLink
-              to="/analytics"
+            </button>
+            <button
+              onClick={() => handleProtectedNavigate('/analytics')}
               className="px-5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-medium border border-slate-800 transition-colors"
             >
               View Skill Analytics
-            </NavLink>
+            </button>
           </div>
         </div>
       </section>
+
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialMode={authMode}
+      />
     </div>
   );
 }

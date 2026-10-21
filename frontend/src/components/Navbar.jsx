@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from './AuthModal';
 import { 
-  Home,
   Briefcase, 
   Users, 
   FileText, 
-  BarChart3, 
   Sparkles, 
   LogIn, 
   LogOut, 
@@ -17,10 +15,16 @@ import {
 
 export default function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const isHomePage = location.pathname === '/';
   const { user, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState('login');
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   // Strictly tailor navigation options according to role
   let navItems = [];
@@ -36,20 +40,12 @@ export default function Navbar() {
     navItems = [
       { name: 'Recruiter Hub', path: '/recruiter', icon: Users },
       { name: 'Active Openings', path: '/jobs', icon: Briefcase },
-      { name: 'Talent Analytics', path: '/analytics', icon: BarChart3 },
       { name: 'Resume Auditor', path: '/auditor', icon: FileText },
-    ];
-  } else {
-    // Unauthenticated guest options (when visiting inner pages)
-    navItems = [
-      { name: 'Explore Jobs', path: '/jobs', icon: Briefcase },
-      { name: 'Resume Auditor', path: '/auditor', icon: FileText },
-      { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     ];
   }
 
-  // Show nav tabs only if logged in OR if exploring an inner page
-  const showNavTabs = Boolean(user) || !isHomePage;
+  // Show nav tabs strictly when authenticated user is logged in
+  const showNavTabs = Boolean(user);
 
   // Dynamic brand logo target based on role
   const brandDestination = user?.role === 'recruiter' 
@@ -122,7 +118,7 @@ export default function Navbar() {
                   {user.role}
                 </span>
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
                   title="Sign Out"
                   className="text-slate-500 hover:text-rose-400 ml-1 p-0.5 transition-colors"
                 >
