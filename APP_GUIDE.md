@@ -103,16 +103,11 @@ npm run dev
    * **Skills Matched / Missing Counts**
    * **Status Dropdown**: Change applicant status between `Applied`, `Shortlisted`, `Reviewed`, and `Rejected`.
 
-### Step 4: Bulk Screen Candidate Resumes
-* Have a folder of candidate resumes?
-* Click **"Bulk Add Resumes"** inside any job opening and select multiple PDF files simultaneously.
-* The system evaluates each resume in parallel, extracts skills, computes match scores, and adds them directly into the sorted leaderboard.
-
-### Step 5: Candidate Details Modal
+### Step 4: Candidate Details Modal
 * Click **"Details"** on any applicant to view their full AI executive summary, score breakdown, and skill comparison.
 * **Internal Recruiter Notes**: Type private review notes directly into the modal (e.g. *"Strong portfolio, scheduled for round 1 on Friday"*), which are saved in real-time.
 
-### Step 6: Export Shortlist to CSV
+### Step 5: Export Shortlist to CSV
 * Click **"Export CSV"** in the top action bar to immediately download a spreadsheet containing candidate rankings, contact details, match percentages, skills, review statuses, and recruiter notes.
 
 ---
