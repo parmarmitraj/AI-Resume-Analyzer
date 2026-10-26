@@ -4,8 +4,6 @@ import {
   Plus, 
   Trash2, 
   Users, 
-  UploadCloud, 
-  CheckCircle2, 
   Award, 
   Search, 
   ArrowUpDown, 
@@ -43,10 +41,6 @@ export default function RecruiterPortal() {
   });
   const [isCreatingJob, setIsCreatingJob] = useState(false);
 
-  // Bulk resume upload for current job
-  const [bulkFiles, setBulkFiles] = useState([]);
-  const [isBulkScreening, setIsBulkScreening] = useState(false);
-  const [bulkSuccessMsg, setBulkSuccessMsg] = useState('');
 
   // Selected candidate detail modal
   const [viewingCandidate, setViewingCandidate] = useState(null);
@@ -80,7 +74,6 @@ export default function RecruiterPortal() {
   const handleSelectJob = async (job) => {
     setSelectedJob(job);
     setLoadingApplicants(true);
-    setBulkSuccessMsg('');
     try {
       const res = await axios.get(`/api/jobs/${job._id}/applicants`);
       if (res.data && res.data.data) {
@@ -145,34 +138,6 @@ export default function RecruiterPortal() {
     }
   };
 
-  // Bulk screen resumes directly into selected job
-  const handleBulkUpload = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0 || !selectedJob) return;
-
-    setIsBulkScreening(true);
-    setBulkSuccessMsg('');
-
-    const formData = new FormData();
-    files.forEach(f => formData.append('resumes', f));
-
-    try {
-      const res = await axios.post(`/api/jobs/${selectedJob._id}/bulk-screen`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
-      if (res.data) {
-        setBulkSuccessMsg(`Processed ${res.data.total_processed} resumes into the sorted leaderboard!`);
-        // Refresh applicants
-        handleSelectJob(selectedJob);
-      }
-    } catch (err) {
-      alert(`Bulk screening failed: ${err.response?.data?.message || err.message}`);
-    } finally {
-      setIsBulkScreening(false);
-      e.target.value = '';
-    }
-  };
 
   // Update applicant review status & notes
   const handleStatusChange = async (appId, newStatus) => {
@@ -361,7 +326,7 @@ export default function RecruiterPortal() {
         <div className="lg:col-span-8 space-y-4">
           {selectedJob ? (
             <div className="clean-panel rounded-xl p-5 border border-slate-800 space-y-4">
-              {/* Job Header Strip & Bulk Upload Button */}
+              {/* Job Header Strip & Actions */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                 <div>
                   <span className="text-[10px] uppercase font-semibold text-indigo-400">
@@ -382,29 +347,8 @@ export default function RecruiterPortal() {
                     <Download className="w-3.5 h-3.5 text-indigo-400" />
                     <span>Export CSV</span>
                   </button>
-
-                  <label className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-colors">
-                    <UploadCloud className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>{isBulkScreening ? 'Screening...' : 'Bulk Add Resumes'}</span>
-                    <input 
-                      type="file" 
-                      multiple 
-                      accept=".pdf" 
-                      onChange={handleBulkUpload}
-                      disabled={isBulkScreening}
-                      className="hidden" 
-                    />
-                  </label>
                 </div>
               </div>
-
-              {/* Notification */}
-              {bulkSuccessMsg && (
-                <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/80 text-emerald-300 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{bulkSuccessMsg}</span>
-                </div>
-              )}
 
               {/* Search Bar */}
               <div className="flex items-center justify-between gap-3">
@@ -435,7 +379,7 @@ export default function RecruiterPortal() {
                   <Users className="w-8 h-8 text-slate-600 mx-auto" />
                   <p className="font-medium text-slate-300">No applicants for this position yet.</p>
                   <p className="text-[11px] text-slate-500">
-                    Students who apply will automatically appear here sorted by their match score, or use "Bulk Add Resumes" to screen a folder of PDFs.
+                    Students who apply will automatically appear here sorted by their match score.
                   </p>
                 </div>
               ) : (
