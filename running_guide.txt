@@ -1,0 +1,27 @@
+terminal 1
+
+cd "e:\SEM 7\Minor project\AI Resume Analyzer"
+.\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+
+
+If you get WinError 10013 again, it means a previous instance is still running. Run this first to kill it, then run uvicorn again:
+
+powershell
+Get-Process | Where-Object { $_.ProcessName -match 'python|uvicorn' } | Stop-Process -Force
+
+
+
+
+
+terminal 2
+
+cd "e:\SEM 7\Minor project\AI Resume Analyzer\backend"
+>> npm start
+
+
+
+
+terminal 3
+
+cd "e:\SEM 7\Minor project\AI Resume Analyzer\frontend"
+>> npm run dev

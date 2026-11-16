@@ -1,0 +1,31 @@
+# requirements.txt
+# AI Resume Analyzer — Python Dependencies (CPU build)
+# Generated: 2026-11-16
+# Python: 3.11+ recommended (tested on 3.13)
+#
+# Install: pip install -r requirements.txt
+# Activate venv first: .\venv\Scripts\activate
+
+# ── Web Framework ──────────────────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9       # Required for FastAPI file upload (Form + File)
+
+# ── PDF Extraction ─────────────────────────────────────────────────────────
+pymupdf>=1.24.0               # Imported as: import pymupdf as fitz
+
+# ── Machine Learning ───────────────────────────────────────────────────────
+tensorflow>=2.16.0,<3.0.0     # BiLSTM model (CPU build — no CUDA required)
+numpy>=1.26.0,<2.0.0          # Keep <2.0 for TF compatibility
+scikit-learn>=1.4.0           # TF-IDF vectorizer + cosine similarity
+
+# ── Gemini LLM Feedback ────────────────────────────────────────────────────
+google-genai>=1.0.0           # Gemini 2.5 Flash API client
+
+# ── Environment & Config ───────────────────────────────────────────────────
+python-dotenv>=1.0.0          # Loads .env file for GEMINI_API_KEY
+
+# ── Removed (no longer needed) ─────────────────────────────────────────────
+# spacy                        # Was used in cleaner.py — replaced with regex
+# en_core_web_sm               # spaCy English model — no longer downloaded
+

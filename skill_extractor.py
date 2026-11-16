@@ -1,49 +1,47 @@
-import json
+"""
+skill_extractor.py — Custom BiLSTM NER Inference Engine
+========================================================
+Loads the trained custom_ner_bilstm.keras model and vocab.json at FastAPI
+startup (via lifespan context) and exposes the extract_skills() function.
+
+Two-Phase Extraction Strategy:
+  Phase 1 — Dictionary Matching : high recall via skills.csv + common aliases
+  Phase 2 — BiLSTM NER          : catches novel / out-of-vocabulary skills
+
+Design decisions:
+  • Case-insensitive vocab lookup with _lower_to_original map (fixes <UNK> flood)
+  • Sliding window for sentences > MAX_LEN tokens
+  • Confidence threshold (CONF_THRESHOLD) filters weak BiLSTM predictions
+  • Stopword post-filter removes verbs / determiners leaked as "skills"
+"""
+
 import re
+import json
+import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-# Suppress minor TensorFlow warnings
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
-# ──────────────────────────────────────────────────────────────────────
-# 1. Load Production Artifacts
-# ──────────────────────────────────────────────────────────────────────
-print("Loading Custom TensorFlow BiLSTM Model...")
-model = tf.keras.models.load_model("custom_ner_bilstm.keras")
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Runtime State  (populated by load_model_artifacts() at app startup)
+# ─────────────────────────────────────────────────────────────────────────────
+_model      = None
+_word2idx   = None
+_idx2tag    = None
+_lower2orig = None   # {lowercase_word: original_cased_word} for vocab lookup
+_MAX_LEN    = 20
+_PAD_IDX    = 0
+_UNK_IDX    = 1
 
-with open("vocab.json", "r") as f:
-    vocab_data = json.load(f)
+# Minimum softmax confidence to accept a BiLSTM "B-SKILL" prediction.
+# Lowered to 0.28 because Dataturks data has noisy labels → model is calibrated lower.
+CONF_THRESHOLD = 0.28
 
-word2idx = vocab_data["word2idx"]
-tag2idx = vocab_data["tag2idx"]
-idx2tag = {int(idx): tag for tag, idx in tag2idx.items()}
-
-# FIX (Bug #1): MAX_LEN must match what train_kaggle.py used during training.
-# The training script uses max_len=20, so inference MUST also use 20.
-# Read from vocab metadata if present, otherwise default to the training value.
-MAX_LEN = vocab_data.get("max_len", 20)
-
-# Build a lowercase-to-original mapping for case-aware lookup.
-# This lets us find "Python" in the vocab even if we receive "python".
-_lower_to_original = {}
-for word in word2idx:
-    low = word.lower()
-    # Prefer the version with higher index (more likely a real word, not a fragment)
-    # But really, any match is better than <UNK>
-    if low not in _lower_to_original:
-        _lower_to_original[low] = word
-
-PAD_IDX = word2idx.get("<PAD>", 0)
-UNK_IDX = word2idx.get("<UNK>", 1)
-
-# ──────────────────────────────────────────────────────────────────────
-# 2. Configuration
-# ──────────────────────────────────────────────────────────────────────
-
-# Common structural English words that should never be standalone skills.
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Stopwords — tokens that should NEVER be emitted as standalone skills
+# ─────────────────────────────────────────────────────────────────────────────
 STOPWORDS = {
     "using", "used", "use", "developed", "built", "implemented", "created",
     "deployed", "services", "interfaces", "with", "and", "a", "an", "the",
@@ -60,244 +58,247 @@ STOPWORDS = {
     "testing", "test", "data", "process", "processes", "solution", "solutions",
 }
 
-# FIX (Bug #4): Lowered threshold from 0.40 to 0.30.
-# Kaggle datasets are noisy; the model is less confident but still correct.
-CONFIDENCE_THRESHOLD = 0.30
 
-# ──────────────────────────────────────────────────────────────────────
-# 3. Tokenization (preserves technical terms)
-# ──────────────────────────────────────────────────────────────────────
-
-def clean_and_tokenize(sentence):
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. Model & Vocab Loader  (called once at FastAPI startup)
+# ─────────────────────────────────────────────────────────────────────────────
+def load_model_artifacts(
+    model_path: str = "custom_ner_bilstm.keras",
+    vocab_path: str = "vocab.json"
+) -> None:
     """
-    Splits text while preserving compound technical terms like Node.js, C++, C#.
-    Uses the SAME regex pattern as train_kaggle.py for consistency.
+    Loads the Keras model and vocab dictionary into module-level globals.
+    Call this once at application startup — NOT on each request.
     """
-    # This regex must exactly match train_kaggle.py line 34:
-    #   re.finditer(r'[A-Za-z0-9+#.\-]+', text)
-    raw_tokens = re.findall(r'[A-Za-z0-9+#.\-]+', sentence)
-    
-    cleaned = []
-    for t in raw_tokens:
-        # Check if this is a compound term (contains . or - between alphanumerics)
-        has_dot_suffix = bool(re.search(r'\.[a-zA-Z]{1,4}$', t)) and not t.endswith('..')
-        has_internal_sep = bool(re.search(r'[a-zA-Z0-9][.\-][a-zA-Z]', t))
-        
-        if has_dot_suffix or has_internal_sep:
-            # Compound term (Node.js, React.js, scikit-learn, ASP.NET)
-            # Check if the compound form is in the vocabulary as-is
-            if t in word2idx or t.lower() in _lower_to_original:
-                cleaned.append(t)
-            else:
-                # Compound form not in vocab — split into sub-tokens
-                # e.g., "Node.js" → ["Node", "js"], "scikit-learn" → ["scikit", "learn"]
-                sub_tokens = [s for s in re.split(r'[.\-]', t) if s]
-                cleaned.extend(sub_tokens)
-        else:
-            stripped = t.rstrip('.-')
-            if stripped:
-                cleaned.append(stripped)
-    return cleaned
+    global _model, _word2idx, _idx2tag, _lower2orig, _MAX_LEN, _PAD_IDX, _UNK_IDX
+
+    # ── Load model ────────────────────────────────────────────────────────────
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(
+            f"Model file '{model_path}' not found.\n"
+            "Run 'python train_kaggle.py' first to train and save the model."
+        )
+    print(f"[NER] Loading model: {model_path}")
+    _model = tf.keras.models.load_model(model_path)
+
+    # ── Load vocab ────────────────────────────────────────────────────────────
+    if not os.path.exists(vocab_path):
+        raise FileNotFoundError(
+            f"Vocab file '{vocab_path}' not found.\n"
+            "Run 'python train_kaggle.py' to regenerate it."
+        )
+    print(f"[NER] Loading vocab : {vocab_path}")
+    with open(vocab_path, "r", encoding="utf-8") as fh:
+        vocab_data = json.load(fh)
+
+    _word2idx = vocab_data["word2idx"]
+    tag2idx   = vocab_data["tag2idx"]
+    _idx2tag  = {int(v): k for k, v in tag2idx.items()}
+    _MAX_LEN  = int(vocab_data.get("max_len", 20))
+    _PAD_IDX  = _word2idx.get("<PAD>", 0)
+    _UNK_IDX  = _word2idx.get("<UNK>", 1)
+
+    # Build a case-insensitive lookup to avoid unnecessary <UNK> tokens
+    _lower2orig = {}
+    for word in _word2idx:
+        low = word.lower()
+        if low not in _lower2orig:
+            _lower2orig[low] = word
+
+    meta = vocab_data.get("_meta", {})
+    print(
+        f"[NER] ✅ Ready  —  vocab={len(_word2idx)}  max_len={_MAX_LEN}  "
+        f"val_acc={meta.get('val_acc', 'n/a')}"
+    )
 
 
-def _resolve_token(token):
-    """
-    FIX (Bug #2): Case-aware vocabulary lookup with fallback chain.
-    Try: exact match → lowercase match via reverse map → title case → upper → <UNK>
-    """
-    # 1. Exact match (best case: vocab has this exact token)
-    if token in word2idx:
-        return word2idx[token]
-    
-    # 2. Lowercase reverse lookup (e.g., input is "python", vocab has "Python")
-    original = _lower_to_original.get(token.lower())
-    if original is not None:
-        return word2idx[original]
-    
-    # 3. Title case (e.g., input is "PYTHON", try "Python")
-    if token.title() in word2idx:
-        return word2idx[token.title()]
-    
-    # 4. Uppercase (e.g., input is "html", try "HTML")
-    if token.upper() in word2idx:
-        return word2idx[token.upper()]
-    
-    # 5. Lowercase directly
-    if token.lower() in word2idx:
-        return word2idx[token.lower()]
-    
-    return UNK_IDX
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Dictionary Knowledge Base  (Phase 1 — high recall)
+# ─────────────────────────────────────────────────────────────────────────────
+# Loaded lazily on first call to avoid import-time I/O
+_dict_initialized = False
+_KNOWN_SKILLS_DB: set  = set()
+_NORMALIZED_SKILLS: dict = {}   # {normalised_form: canonical_skill}
 
-
-# ──────────────────────────────────────────────────────────────────────
-# 4. Core Extraction Engine
-# ──────────────────────────────────────────────────────────────────────
-
-def extract_skills_from_tokens(tokens):
-    """
-    Runs a batch of tokens through the BiLSTM and extracts skill spans
-    using BIO tags with confidence filtering.
-    """
-    if not tokens:
-        return []
-    
-    # Encode tokens with case-aware lookup
-    encoded = [_resolve_token(t) for t in tokens]
-    padded = pad_sequences([encoded], maxlen=MAX_LEN, padding="post", value=PAD_IDX)
-    
-    probabilities = model.predict(padded, verbose=0)[0]
-    predicted_indices = np.argmax(probabilities, axis=-1)
-    
-    extracted = []
-    current_skill = []
-    
-    for i, token in enumerate(tokens[:MAX_LEN]):
-        predicted_idx = predicted_indices[i]
-        tag = idx2tag.get(predicted_idx, "O")
-        confidence = float(probabilities[i][predicted_idx])
-        
-        # Ignore tokens if it's a structural stopword (regardless of model prediction)
-        if token.lower() in STOPWORDS:
-            if current_skill:
-                extracted.append(" ".join(current_skill))
-                current_skill = []
-            continue
-        
-        if tag == "B-SKILL" and confidence > CONFIDENCE_THRESHOLD:
-            # Start of a new skill — flush any previous skill
-            if current_skill:
-                extracted.append(" ".join(current_skill))
-            current_skill = [token]
-        elif tag == "I-SKILL" and current_skill:
-            # Continuation of current skill — trust the sequence
-            current_skill.append(token)
-        else:
-            # O tag or B-SKILL below threshold — flush
-            if current_skill:
-                extracted.append(" ".join(current_skill))
-                current_skill = []
-    
-    # Flush any remaining skill
-    if current_skill:
-        extracted.append(" ".join(current_skill))
-    
-    return extracted
-
-
-import csv
-
-# ──────────────────────────────────────────────────────────────────────
-# 2.5 Hybrid Dictionary-Based Extraction setup
-# ──────────────────────────────────────────────────────────────────────
-KNOWN_SKILLS_DB = set()
-try:
-    with open("skills.csv", "r", encoding="utf-8") as f:
-        # Some CSVs have headers or multiple columns, we just take the first column
-        for line in f:
-            skill = line.strip().split(",")[0].strip('"').lower()
-            if len(skill) > 1 and skill not in STOPWORDS:
-                KNOWN_SKILLS_DB.add(skill)
-except Exception as e:
-    print(f"Warning: Could not load skills.csv: {e}")
-
-# Ensure critical modern skills and aliases are in the DB
-COMMON_ALIASES = {
-    "node.js", "nodejs", "react", "react.js", "reactjs", "vue", "vue.js", "express", "express.js",
-    "next.js", "nextjs", "angular", "angular.js", "scikit-learn", "sklearn", "kubernetes", "k8s",
-    "tensorflow", "tf", "javascript", "js", "typescript", "ts", "aws", "gcp", "azure",
-    "machine learning", "deep learning", "ai", "artificial intelligence", "llm", "genai",
-    "docker", "git", "github", "mongodb", "postgresql", "mysql", "redis", "firebase", "supabase",
-    "html", "css", "streamlit", "python", "java", "c++", "c#", "php", "ruby", "swift", "golang", "rust",
-    "ci/cd", "jenkins", "graphql", "apollo", "memcached", "elasticsearch", "kafka",
-    "rabbitmq", "react native", "flutter", "fastapi", "django", "flask", "pandas", "numpy", "pytorch",
-    "keras", "xgboost", "langchain", "langgraph", "rag", "openai", "claude", "gemini",
-    "mern", "mean", "lamp", "jamstack", "frontend", "backend", "full stack", "fullstack",
-    "devops", "cloud", "api", "rest api", "microservices"
+_COMMON_ALIASES = {
+    "node.js", "nodejs", "react", "react.js", "reactjs", "vue", "vue.js",
+    "express", "express.js", "next.js", "nextjs", "angular", "angular.js",
+    "scikit-learn", "sklearn", "kubernetes", "k8s", "tensorflow", "tf",
+    "javascript", "js", "typescript", "ts", "aws", "gcp", "azure",
+    "machine learning", "deep learning", "ai", "artificial intelligence",
+    "llm", "genai", "docker", "git", "github", "mongodb", "postgresql",
+    "mysql", "redis", "firebase", "supabase", "html", "css", "streamlit",
+    "python", "java", "c++", "c#", "php", "ruby", "swift", "golang", "rust",
+    "ci/cd", "jenkins", "graphql", "apollo", "memcached", "elasticsearch",
+    "kafka", "rabbitmq", "react native", "flutter", "fastapi", "django",
+    "flask", "pandas", "numpy", "pytorch", "keras", "xgboost", "langchain",
+    "langgraph", "rag", "openai", "claude", "gemini", "mern", "mean",
+    "lamp", "jamstack", "frontend", "backend", "full stack", "fullstack",
+    "devops", "cloud", "api", "rest api", "microservices", "spring boot",
+    "hibernate", "maven", "gradle", "junit", "selenium", "postman",
+    "jira", "confluence", "linux", "bash", "powershell", "terraform",
+    "ansible", "bitbucket", "gitlab", "hugging face", "transformers",
+    "bert", "gpt", "stable diffusion", "llama", "mistral",
 }
-KNOWN_SKILLS_DB.update(COMMON_ALIASES)
 
-# Pre-compute normalized skills for fast matching (avoids punctuation boundary issues)
-NORMALIZED_SKILLS = {}
-for skill in KNOWN_SKILLS_DB:
-    # Replace non-alphanumerics (except +, #) with space, then strip multiple spaces
-    norm = re.sub(r'[^\w+#]', ' ', skill)
-    norm = re.sub(r'\s+', ' ', norm).strip()
-    if len(norm) > 1 and norm not in STOPWORDS:
-        NORMALIZED_SKILLS[norm] = skill
 
-def _split_into_sentences(text):
+def _init_dict():
+    global _dict_initialized, _KNOWN_SKILLS_DB, _NORMALIZED_SKILLS
+    if _dict_initialized:
+        return
+    _KNOWN_SKILLS_DB = set(_COMMON_ALIASES)
+
+    try:
+        with open("skills.csv", "r", encoding="utf-8") as fh:
+            for line in fh:
+                skill = line.strip().split(",")[0].strip('"').lower()
+                if len(skill) > 1 and skill not in STOPWORDS:
+                    _KNOWN_SKILLS_DB.add(skill)
+        print(f"[NER] Dictionary: {len(_KNOWN_SKILLS_DB)} skills loaded from skills.csv")
+    except Exception as exc:
+        print(f"[NER] Warning: Could not load skills.csv: {exc}")
+
+    # Pre-compute normalised forms (replace non-alnum except +,# with space)
+    for skill in _KNOWN_SKILLS_DB:
+        norm = re.sub(r"[^\w+#]", " ", skill)
+        norm = re.sub(r"\s+", " ", norm).strip()
+        if len(norm) > 1 and norm not in STOPWORDS:
+            _NORMALIZED_SKILLS[norm] = skill
+
+    _dict_initialized = True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Tokenisation Helpers
+# ─────────────────────────────────────────────────────────────────────────────
+def _split_into_sentences(text: str) -> list[str]:
     """
-    Smart sentence splitting that doesn't destroy technical terms.
-    
-    Splits on newlines and sentence-ending periods, but NOT on periods that are
-    part of technical terms like Node.js, React.js, ASP.NET, etc.
+    Splits on newlines and sentence-ending periods, but NOT on periods that
+    are part of technical terms (Node.js, ASP.NET, 2.5, etc.).
     """
-    # First, split on newlines (safe — never inside a technical term)
-    lines = re.split(r'\n+', text)
-    
+    lines = re.split(r"\n+", text)
     sentences = []
     for line in lines:
         line = line.strip()
         if not line:
             continue
-        
-        # Split on periods that are followed by a space and uppercase letter (sentence boundary)
-        # but NOT on patterns like ".js", ".NET", ".py" (technical suffixes)
-        parts = re.split(r'\.(?=\s+[A-Z])', line)
-        for part in parts:
-            part = part.strip()
-            if part:
-                sentences.append(part)
-    
+        # Split on period + space + capital (sentence boundary)
+        # but NOT on period followed by lowercase or digit (tech term)
+        parts = re.split(r"\.(?=\s+[A-Z])", line)
+        sentences.extend(p.strip() for p in parts if p.strip())
     return sentences
 
-def extract_skills(text):
+
+def _tokenize(sentence: str) -> list[str]:
     """
-    Main entry point: Two-Phase Extraction.
-    Phase 1: High-recall Dictionary matching using skills.csv and common aliases.
-    Phase 2: Custom BiLSTM NER to catch novel or out-of-vocabulary skills.
+    Tokenises preserving technical tokens: Node.js, C++, ASP.NET, ci/cd, etc.
+    Returns a list of tokens, all stripped of leading/trailing punctuation.
     """
-    all_skills = set()
-    
-    # ── Phase 1: Dictionary Matching ──
-    text_lower = text.lower()
-    # Normalize text the exact same way as skills
-    text_padded = " " + re.sub(r'[^\w+#]', ' ', text_lower) + " "
-    # Collapse multiple spaces
-    text_padded = re.sub(r'\s+', ' ', text_padded)
-    
-    for norm_skill, original_skill in NORMALIZED_SKILLS.items():
+    raw = re.findall(r"[A-Za-z0-9][A-Za-z0-9+#.\-/]*", sentence)
+    return [t.rstrip(".-") for t in raw if t.rstrip(".-")]
+
+
+def _tok_to_idx(token: str) -> int:
+    """Case-insensitive vocab lookup with <UNK> fallback."""
+    # Try exact match first (preserves casing for tech terms like "MongoDB")
+    if token in _word2idx:
+        return _word2idx[token]
+    # Try lowercase fallback
+    orig = _lower2orig.get(token.lower())
+    if orig:
+        return _word2idx[orig]
+    return _UNK_IDX
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. BiLSTM Inference  (Phase 2 — catch OOV skills)
+# ─────────────────────────────────────────────────────────────────────────────
+def _run_bilstm(tokens: list[str]) -> list[str]:
+    """
+    Runs the BiLSTM model over a single token window (len ≤ MAX_LEN).
+    Returns a list of extracted skill strings.
+    """
+    encoded = [_tok_to_idx(t) for t in tokens]
+    padded  = pad_sequences([encoded], maxlen=_MAX_LEN, padding="post", value=_PAD_IDX)
+    probs   = _model.predict(padded, verbose=0)[0]   # shape: (MAX_LEN, num_tags)
+    pred_ids = np.argmax(probs, axis=-1)
+
+    skills, current = [], []
+    for i, token in enumerate(tokens[:_MAX_LEN]):
+        tag        = _idx2tag.get(pred_ids[i], "O")
+        confidence = float(probs[i][pred_ids[i]])
+
+        if tag == "B-SKILL" and confidence >= CONF_THRESHOLD:
+            if current:
+                skills.append(" ".join(current))
+            current = [token]
+        elif tag == "I-SKILL" and current and confidence >= CONF_THRESHOLD:
+            current.append(token)
+        else:
+            if current:
+                skills.append(" ".join(current))
+            current = []
+
+    if current:
+        skills.append(" ".join(current))
+
+    return skills
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. Main Public API
+# ─────────────────────────────────────────────────────────────────────────────
+def extract_skills(text: str) -> list[str]:
+    """
+    Extracts skill tokens from free-form resume or job-description text.
+
+    Phase 1: Dictionary matching  (high recall, fast)
+    Phase 2: BiLSTM NER           (catches novel / compound skills)
+
+    Args:
+        text: Raw text string (from PDF extraction or plain text).
+
+    Returns:
+        A deduplicated list of lowercase skill strings.
+    """
+    _init_dict()
+
+    if _model is None:
+        raise RuntimeError(
+            "NER model not loaded. Call load_model_artifacts() at app startup."
+        )
+
+    all_skills: set[str] = set()
+
+    # ── Phase 1: Dictionary Matching ─────────────────────────────────────────
+    text_lower  = text.lower()
+    text_padded = " " + re.sub(r"[^\w+#]", " ", text_lower) + " "
+    text_padded = re.sub(r"\s+", " ", text_padded)
+
+    for norm_skill, original_skill in _NORMALIZED_SKILLS.items():
         if f" {norm_skill} " in text_padded:
             all_skills.add(original_skill)
 
-    # ── Phase 2: BiLSTM Custom NER ──
+    # ── Phase 2: BiLSTM NER ──────────────────────────────────────────────────
     sentences = _split_into_sentences(text)
-    
+    stride    = max(1, _MAX_LEN // 2)
+
     for sentence in sentences:
-        tokens = clean_and_tokenize(sentence)
-        
+        tokens = _tokenize(sentence)
         if not tokens:
             continue
-        
-        # Use a sliding window for sentences longer than MAX_LEN.
-        stride = max(1, MAX_LEN // 2)
-        
-        if len(tokens) <= MAX_LEN:
-            skills = extract_skills_from_tokens(tokens)
-            for s in skills:
-                cleaned = s.strip()
+
+        if len(tokens) <= _MAX_LEN:
+            windows = [tokens]
+        else:
+            windows = [tokens[i: i + _MAX_LEN] for i in range(0, len(tokens), stride)]
+
+        for window in windows:
+            if not window:
+                continue
+            for skill in _run_bilstm(window):
+                cleaned = skill.strip()
                 if cleaned and cleaned.lower() not in STOPWORDS and len(cleaned) > 1:
                     all_skills.add(cleaned)
-        else:
-            for start in range(0, len(tokens), stride):
-                window = tokens[start:start + MAX_LEN]
-                if not window:
-                    break
-                skills = extract_skills_from_tokens(window)
-                for s in skills:
-                    cleaned = s.strip()
-                    if cleaned and cleaned.lower() not in STOPWORDS and len(cleaned) > 1:
-                        all_skills.add(cleaned)
-    
-    return list(all_skills)
 
+    return list(all_skills)

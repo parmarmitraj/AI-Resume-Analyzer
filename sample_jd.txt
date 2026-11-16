@@ -1,0 +1,33 @@
+Job Title: Junior Full Stack & Data Engineer
+
+Location: Remote / Hybrid
+
+Company: TechNova Solutions
+
+
+
+Role Overview:
+
+We are seeking a versatile software engineer to bridge the gap between our interactive web platforms and our data analytics backend. The ideal candidate will build out user-facing dashboards while supporting the data engineering team with machine learning pipelines.
+
+
+
+Required Qualifications & Skills:
+
+- Solid foundation in core computer science concepts, specifically Object-Oriented Programming (OOP), Data Structures & Algorithms, and DBMS.
+
+- Hands-on experience developing full-stack applications using ReactJS, NodeJS, Express.js, and MongoDB.
+
+- Experience writing data pipelines in Python and utilizing machine learning libraries such as Pandas and Scikit-Learn.
+
+- Familiarity with version control using Git and GitHub.
+
+- Strong experience deploying applications to cloud infrastructure, specifically AWS (EC2, S3, and Lambda).
+
+- Production experience with containerization and orchestration tools like Docker and Kubernetes.
+
+- Proficiency in building robust APIs using GraphQL and TypeScript.
+
+- Proven ability to configure automated CI/CD pipelines (Jenkins, GitLab CI, or GitHub Actions).
+
+- Minimum 1-2 years of professional corporate experience working within Agile/Scrum methodologies.

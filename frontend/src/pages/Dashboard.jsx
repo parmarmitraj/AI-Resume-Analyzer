@@ -57,17 +57,18 @@ export default function Dashboard() {
     try {
       const response = await axios.post('/api/student/analyze', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 30000
+        timeout: 90000  // 90s — Gemini API + BiLSTM inference needs up to 25s
       });
 
       if (response.data && response.data.status === 'success') {
-        const payload = response.data.data;
+        // FIX: response is flat (no nested .data) — read directly from response.data
+        const payload = response.data;
         const feedbackObj = payload.feedback || {};
 
         const formattedResults = {
           id: Date.now(),
           fileName: selectedFile.name,
-          candidateName: response.data.candidate_name || selectedFile.name.replace(/\.[^/.]+$/, ""),
+          candidateName: selectedFile.name.replace(/\.[^/.]+$/, ""),
           matchScore: payload.final_match_pct || 0,
           skillScore: payload.skill_score_pct || 0,
           contextScore: payload.context_score_pct || 0,
@@ -104,16 +105,18 @@ export default function Dashboard() {
       formData.append('resumes', file);
     });
     formData.append('job_description', jobDescription.trim());
-    formData.append('job_role', jobRole.trim() || 'Software Engineer');
+    // NOTE: job_role is NOT sent — /api/recruiter/bulk-rank doesn't accept it
 
     try {
-      const response = await axios.post('/api/auditor/analyze-bulk', formData, {
+      // FIX: correct endpoint URL — was '/api/auditor/analyze-bulk' (non-existent)
+      const response = await axios.post('/api/recruiter/bulk-rank', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 60000
       });
 
       if (response.data && response.data.status === 'success') {
-        setBulkResults(response.data.data || []);
+        // FIX: leaderboard is at response.data.leaderboard, not response.data.data
+        setBulkResults(response.data.leaderboard || []);
       } else {
         throw new Error(response.data?.message || 'Failed to screen resumes.');
       }
