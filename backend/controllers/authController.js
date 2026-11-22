@@ -8,7 +8,6 @@ const { extractTextFromPDF } = require('../services/pdfService');
 const { extractSkills } = require('../services/skillExtractor');
 const { JWT_SECRET } = require('../middleware/auth');
 
-// In-memory users store fallback if MongoDB is not running
 if (!memoryStore.users) {
   memoryStore.users = [];
 }
@@ -27,9 +26,6 @@ const generateToken = (user) => {
   );
 };
 
-/**
- * Register candidate or recruiter
- */
 exports.register = async (req, res) => {
   try {
     const { name, email, password, role, company } = req.body;
@@ -113,9 +109,6 @@ exports.register = async (req, res) => {
   }
 };
 
-/**
- * Login candidate or recruiter
- */
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -169,9 +162,6 @@ exports.login = async (req, res) => {
   }
 };
 
-/**
- * Get current authenticated user profile
- */
 exports.getMe = async (req, res) => {
   try {
     let user;
@@ -195,10 +185,6 @@ exports.getMe = async (req, res) => {
   }
 };
 
-/**
- * Candidate uploads and saves resume to persistent Profile Locker
- * ("Upload Once, Match Everywhere")
- */
 exports.saveResumeProfile = async (req, res) => {
   try {
     if (!req.file) {
@@ -244,9 +230,6 @@ exports.saveResumeProfile = async (req, res) => {
   }
 };
 
-/**
- * Candidate fetches "My Applications" history with live recruiter review statuses
- */
 exports.getMyApplications = async (req, res) => {
   try {
     let applications = [];

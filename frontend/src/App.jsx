@@ -15,16 +15,16 @@ export default function App() {
     <AuthProvider>
       <Router>
         <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-indigo-600 selection:text-white">
-          {/* Navigation */}
+          {}
           <Navbar />
 
-          {/* Page Content */}
+          {}
           <main className="flex-1">
             <Routes>
-              {/* Public Home Landing Page */}
+              {}
               <Route path="/" element={<HomePage />} />
               
-              {/* Protected Student Job Board & Matching */}
+              {}
               <Route 
                 path="/jobs" 
                 element={
@@ -34,7 +34,7 @@ export default function App() {
                 } 
               />
               
-              {/* Protected Recruiter Command Hub */}
+              {}
               <Route 
                 path="/recruiter" 
                 element={
@@ -44,7 +44,7 @@ export default function App() {
                 } 
               />
               
-              {/* Protected Candidate Application Tracker */}
+              {}
               <Route 
                 path="/applications" 
                 element={
@@ -54,7 +54,7 @@ export default function App() {
                 } 
               />
               
-              {/* Protected Standalone Custom Resume Auditor */}
+              {}
               <Route 
                 path="/auditor" 
                 element={
@@ -64,7 +64,7 @@ export default function App() {
                 } 
               />
               
-              {/* Protected System Intelligence Analytics */}
+              {}
               <Route 
                 path="/analytics" 
                 element={
@@ -74,7 +74,7 @@ export default function App() {
                 } 
               />
               
-              {/* Fallback */}
+              {}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

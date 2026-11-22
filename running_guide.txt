@@ -1,6 +1,6 @@
 terminal 1
 
-cd "e:\SEM 7\Minor project\AI Resume Analyzer"
+cd "e:\PDEU\Sem 7\AI-Resume-Analyzer"
 .\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 
 
@@ -15,7 +15,7 @@ Get-Process | Where-Object { $_.ProcessName -match 'python|uvicorn' } | Stop-Pro
 
 terminal 2
 
-cd "e:\SEM 7\Minor project\AI Resume Analyzer\backend"
+cd "e:\PDEU\Sem 7\AI-Resume-Analyzer\backend"
 >> npm start
 
 
@@ -23,5 +23,5 @@ cd "e:\SEM 7\Minor project\AI Resume Analyzer\backend"
 
 terminal 3
 
-cd "e:\SEM 7\Minor project\AI Resume Analyzer\frontend"
+cd "e:\PDEU\Sem 7\AI-Resume-Analyzer\frontend"
 >> npm run dev

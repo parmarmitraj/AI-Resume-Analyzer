@@ -8,7 +8,6 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(localStorage.getItem('auth_token') || null);
   const [loading, setLoading] = useState(true);
 
-  // Configure Axios Authorization header
   useEffect(() => {
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -19,7 +18,6 @@ export function AuthProvider({ children }) {
     }
   }, [token]);
 
-  // Fetch current user on mount if token exists
   useEffect(() => {
     const fetchUser = async () => {
       if (!token) {
@@ -45,7 +43,6 @@ export function AuthProvider({ children }) {
     fetchUser();
   }, [token]);
 
-  // Login function
   const login = async (email, password) => {
     const res = await axios.post('/api/auth/login', { email, password });
     if (res.data && res.data.token) {
@@ -56,7 +53,6 @@ export function AuthProvider({ children }) {
     throw new Error(res.data?.message || 'Login failed');
   };
 
-  // Register function
   const register = async (userData) => {
     const res = await axios.post('/api/auth/register', userData);
     if (res.data && res.data.token) {
@@ -67,14 +63,12 @@ export function AuthProvider({ children }) {
     throw new Error(res.data?.message || 'Registration failed');
   };
 
-  // Logout function
   const logout = () => {
     setToken(null);
     setUser(null);
     localStorage.removeItem('auth_token');
   };
 
-  // Update candidate persistent resume locker
   const uploadResumeToProfile = async (file) => {
     const formData = new FormData();
     formData.append('resume', file);

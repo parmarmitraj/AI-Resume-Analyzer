@@ -8,24 +8,24 @@ echo   AI Resume Analyzer — Starting All Servers
 echo  ============================================
 echo.
 
-cd /d "e:\SEM 7\Minor project\AI Resume Analyzer"
+cd /d "%~dp0"
 
 :: ── 1. FastAPI (Python ML Backend) on port 8000 ──────────────────────────
 echo  [1/3] Starting FastAPI (BiLSTM + TF-IDF) on port 8000...
-start "FastAPI :8000" cmd /k "cd /d "e:\SEM 7\Minor project\AI Resume Analyzer" && set TF_CPP_MIN_LOG_LEVEL=2 && set TF_ENABLE_ONEDNN_OPTS=0 && .\venv\Scripts\uvicorn.exe main:app --host 127.0.0.1 --port 8000 --reload"
+start "FastAPI :8000" cmd /k "cd /d "%~dp0" && set TF_CPP_MIN_LOG_LEVEL=2 && set TF_ENABLE_ONEDNN_OPTS=0 && .\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload"
 
 :: Wait for model to load
 timeout /t 3 /nobreak >nul
 
 :: ── 2. Node.js Backend (Auth + Jobs) on port 5000 ─────────────────────────
 echo  [2/3] Starting Node.js backend (Auth + Jobs) on port 5000...
-start "Node.js :5000" cmd /k "cd /d "e:\SEM 7\Minor project\AI Resume Analyzer\backend" && npm start"
+start "Node.js :5000" cmd /k "cd /d "%~dp0backend" && npm start"
 
 timeout /t 2 /nobreak >nul
 
 :: ── 3. React Vite Frontend on port 5173 ───────────────────────────────────
 echo  [3/3] Starting React Vite frontend on port 5173...
-start "Vite Frontend :5173" cmd /k "cd /d "e:\SEM 7\Minor project\AI Resume Analyzer\frontend" && npm run dev"
+start "Vite Frontend :5173" cmd /k "cd /d "%~dp0frontend" && npm run dev"
 
 echo.
 echo  ============================================

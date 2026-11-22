@@ -7,7 +7,7 @@ export default function ResumesPage() {
   const [candidates, setCandidates] = useState([]);
 
   useEffect(() => {
-    // Load evaluated resumes from local storage history
+    
     const storedHistory = localStorage.getItem('resume_analysis_history');
     if (storedHistory) {
       try {
@@ -34,7 +34,7 @@ export default function ResumesPage() {
 
   return (
     <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-6">
-      {/* Page Title & Search Bar */}
+      {}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-card p-6 rounded-2xl">
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -69,7 +69,7 @@ export default function ResumesPage() {
         </div>
       </div>
 
-      {/* Candidate List or Empty State */}
+      {}
       {filteredCandidates.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredCandidates.map((candidate, index) => (
@@ -105,7 +105,7 @@ export default function ResumesPage() {
                 </div>
               </div>
 
-              {/* Skills */}
+              {}
               {candidate.extractedSkills && candidate.extractedSkills.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {candidate.extractedSkills.map((skill, sIdx) => (
@@ -116,7 +116,7 @@ export default function ResumesPage() {
                 </div>
               )}
 
-              {/* Footer */}
+              {}
               <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
                 <span className="text-slate-500 text-[11px]">
                   Evaluated: {candidate.date || new Date().toLocaleDateString()}

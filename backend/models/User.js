@@ -25,13 +25,13 @@ const UserSchema = new mongoose.Schema({
     default: 'candidate',
     index: true,
   },
-  // Recruiter fields
+  
   company: {
     type: String,
     default: '',
     trim: true,
   },
-  // Candidate Resume Locker fields (Upload Once, Match Everywhere)
+  
   saved_resume_filename: {
     type: String,
     default: '',
@@ -50,7 +50,6 @@ const UserSchema = new mongoose.Schema({
   },
 });
 
-// Pre-save hook to hash password if modified
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   try {
@@ -62,7 +61,6 @@ UserSchema.pre('save', async function (next) {
   }
 });
 
-// Instance method to check password validity
 UserSchema.methods.comparePassword = async function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };

@@ -6,12 +6,12 @@ import { X, Lock, Mail, User, Building2, Briefcase, Sparkles } from 'lucide-reac
 export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
   const navigate = useNavigate();
   const { login, register } = useAuth();
-  const [mode, setMode] = useState(initialMode); // 'login' or 'register'
+  const [mode, setMode] = useState(initialMode); 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    role: 'candidate', // 'candidate' or 'recruiter'
+    role: 'candidate', 
     company: ''
   });
   const [errorMsg, setErrorMsg] = useState('');
@@ -47,7 +47,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
       <div className="clean-panel max-w-sm w-full rounded-xl p-6 border border-slate-700 space-y-4 shadow-xl">
-        {/* Header */}
+        {}
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-1.5 text-xs text-indigo-400 font-semibold uppercase tracking-wider mb-0.5">
@@ -65,7 +65,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
           </button>
         </div>
 
-        {/* Mode Switch Tabs */}
+        {}
         <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-800 text-xs">
           <button
             type="button"
@@ -91,14 +91,14 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
           </button>
         </div>
 
-        {/* Error message */}
+        {}
         {errorMsg && (
           <div className="p-2.5 rounded-lg bg-rose-950/40 border border-rose-800/80 text-rose-300 text-xs">
             {errorMsg}
           </div>
         )}
 
-        {/* Form */}
+        {}
         <form onSubmit={handleSubmit} className="space-y-3">
           {mode === 'register' && (
             <>
@@ -117,7 +117,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
                 </div>
               </div>
 
-              {/* Role Selector Pill */}
+              {}
               <div>
                 <label className="text-xs font-medium text-slate-300 block mb-1">I am a</label>
                 <div className="grid grid-cols-2 gap-2 text-xs">

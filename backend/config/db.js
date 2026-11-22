@@ -12,7 +12,7 @@ const connectDB = async () => {
   try {
     mongoose.set('strictQuery', false);
     const conn = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 2500, // Quick timeout to failover to in-memory if MongoDB service is offline
+      serverSelectionTimeoutMS: 2500, 
     });
     isConnected = true;
     console.log(`[Database] MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`);

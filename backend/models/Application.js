@@ -30,7 +30,7 @@ const ApplicationSchema = new mongoose.Schema({
   final_match_pct: {
     type: Number,
     required: true,
-    index: -1, // Descending index for sorting leaderboard
+    index: -1, 
   },
   skill_score_pct: {
     type: Number,

@@ -42,7 +42,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      {/* Header */}
+      {}
       <div className="clean-panel p-5 rounded-xl border border-slate-800">
         <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
           Talent Intelligence
@@ -53,7 +53,7 @@ export default function AnalyticsPage() {
         </p>
       </div>
 
-      {/* Metrics Cards */}
+      {}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {metricCards.map((m, i) => {
           const Icon = m.icon;
@@ -75,7 +75,7 @@ export default function AnalyticsPage() {
         })}
       </div>
 
-      {/* Top Skills Demand Horizontal Bars */}
+      {}
       <div className="clean-panel p-5 rounded-xl border border-slate-800 space-y-4">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div>

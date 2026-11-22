@@ -8,11 +8,8 @@ from google.genai import types
 from extractor import extract_text_from_pdf
 from matcher import calculate_match
 
-# Load the variables from the .env file into the system
 load_dotenv()
 
-# 1. Initialize the Gemini Client
-# The SDK automatically detects the GEMINI_API_KEY from environment or .env
 client = None
 
 def get_gemini_client():
@@ -22,8 +19,7 @@ def get_gemini_client():
     return client
 
 def generate_feedback(match_results, resume_text, jd_text, job_role="Software Engineer"):
-    # 2. Construct the Prompt
-    # We dynamically inject the variables calculated from Phase 3, PLUS the raw text
+                             
     prompt = f"""
     You are an expert technical recruiter evaluating a candidate for a {job_role} position.
     
@@ -53,7 +49,6 @@ def generate_feedback(match_results, resume_text, jd_text, job_role="Software En
     
     ai_client = get_gemini_client()
     
-    # 3. Call the API and enforce JSON output
     response = ai_client.models.generate_content(
         model='gemini-2.5-flash',
         contents=prompt,
@@ -62,5 +57,4 @@ def generate_feedback(match_results, resume_text, jd_text, job_role="Software En
         )
     )
     
-    # The API returns the raw JSON string
     return response.text

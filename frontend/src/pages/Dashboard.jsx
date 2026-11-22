@@ -25,24 +25,20 @@ export default function Dashboard() {
   const { user } = useAuth();
   const isRecruiter = user?.role === 'recruiter';
 
-  // Candidate mode state
   const [selectedFile, setSelectedFile] = useState(null);
   
-  // Recruiter mode state
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [jobRole, setJobRole] = useState('Software Engineer');
   const [bulkResults, setBulkResults] = useState(null);
   const [selectedCandidateModal, setSelectedCandidateModal] = useState(null);
-  const [sortField, setSortField] = useState('rank'); // 'rank', 'matchScore', 'skillScore', 'contextScore'
-  const [filterTier, setFilterTier] = useState('all'); // 'all', 'high' (>=75), 'medium' (<75)
+  const [sortField, setSortField] = useState('rank'); 
+  const [filterTier, setFilterTier] = useState('all'); 
 
-  // Common state
   const [jobDescription, setJobDescription] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [results, setResults] = useState(null); // single candidate result
+  const [results, setResults] = useState(null); 
   const [errorMsg, setErrorMsg] = useState(null);
 
-  /* ------------------- SINGLE RESUME ANALYSIS (CANDIDATE) ------------------- */
   const handleSingleAnalyze = async () => {
     if (!selectedFile || !jobDescription.trim()) return;
 
@@ -57,11 +53,11 @@ export default function Dashboard() {
     try {
       const response = await axios.post('/api/student/analyze', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 90000  // 90s — Gemini API + BiLSTM inference needs up to 25s
+        timeout: 90000  
       });
 
       if (response.data && response.data.status === 'success') {
-        // FIX: response is flat (no nested .data) — read directly from response.data
+        
         const payload = response.data;
         const feedbackObj = payload.feedback || {};
 
@@ -93,7 +89,6 @@ export default function Dashboard() {
     }
   };
 
-  /* ------------------- BULK RESUME SCREENING (RECRUITER) ------------------- */
   const handleBulkAnalyze = async () => {
     if (selectedFiles.length === 0 || !jobDescription.trim()) return;
 
@@ -104,19 +99,32 @@ export default function Dashboard() {
     selectedFiles.forEach((file) => {
       formData.append('resumes', file);
     });
-    formData.append('job_description', jobDescription.trim());
-    // NOTE: job_role is NOT sent — /api/recruiter/bulk-rank doesn't accept it
+    const fullJD = jobRole && jobRole.trim()
+      ? `Target Role: ${jobRole.trim()}\n\n${jobDescription.trim()}`
+      : jobDescription.trim();
+    formData.append('job_description', fullJD);
 
     try {
-      // FIX: correct endpoint URL — was '/api/auditor/analyze-bulk' (non-existent)
       const response = await axios.post('/api/recruiter/bulk-rank', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 60000
+        timeout: 300000 
       });
 
       if (response.data && response.data.status === 'success') {
-        // FIX: leaderboard is at response.data.leaderboard, not response.data.data
-        setBulkResults(response.data.leaderboard || []);
+        const raw = response.data.leaderboard || response.data.data || [];
+        const normalized = raw.map((c, idx) => ({
+          id: c.id || `candidate-${idx + 1}`,
+          rank: c.rank || idx + 1,
+          candidateName: c.candidateName || (c.filename || c.fileName || `Candidate ${idx + 1}`).replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '),
+          fileName: c.fileName || c.filename || '',
+          matchScore: typeof c.matchScore === 'number' ? c.matchScore : (c.final_match_pct ?? 0),
+          skillScore: typeof c.skillScore === 'number' ? c.skillScore : (c.skill_score_pct ?? 0),
+          contextScore: typeof c.contextScore === 'number' ? c.contextScore : (c.context_score_pct ?? 0),
+          extractedSkills: c.extractedSkills || c.matched_skills || [],
+          missingSkills: c.missingSkills || c.missing_skills || [],
+          summary: c.summary || ''
+        }));
+        setBulkResults(normalized);
       } else {
         throw new Error(response.data?.message || 'Failed to screen resumes.');
       }
@@ -129,7 +137,6 @@ export default function Dashboard() {
     }
   };
 
-  /* ------------------- EXPORT CSV LEADERBOARD ------------------- */
   const exportToCSV = () => {
     if (!bulkResults || bulkResults.length === 0) return;
 
@@ -155,7 +162,6 @@ export default function Dashboard() {
     document.body.removeChild(link);
   };
 
-  // Filter and sort for recruiter bulk list
   const filteredBulkResults = (bulkResults || []).filter(c => {
     if (filterTier === 'high') return c.matchScore >= 75;
     if (filterTier === 'medium') return c.matchScore < 75;
@@ -164,7 +170,7 @@ export default function Dashboard() {
     if (sortField === 'matchScore') return b.matchScore - a.matchScore;
     if (sortField === 'skillScore') return b.skillScore - a.skillScore;
     if (sortField === 'contextScore') return b.contextScore - a.contextScore;
-    return a.rank - b.rank; // default rank asc
+    return a.rank - b.rank; 
   });
 
   const avgBatchScore = bulkResults && bulkResults.length > 0
@@ -181,7 +187,7 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      {/* Page Header */}
+      {}
       <div className="clean-panel rounded-xl p-5 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
@@ -224,11 +230,11 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Main Two-Column Layout */}
+      {}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Upload & JD Input */}
+        {}
         <div className="lg:col-span-5 space-y-4">
-          {/* Target Role input (optional helper for recruiter) */}
+          {}
           {isRecruiter && (
             <div className="clean-panel p-4 rounded-xl border border-slate-800">
               <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5 mb-1.5">
@@ -244,7 +250,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Uploader (Multi for recruiter, single for candidate) */}
+          {}
           <ResumeUploader 
             isMultiple={isRecruiter}
             selectedFile={selectedFile} 
@@ -253,7 +259,7 @@ export default function Dashboard() {
             setSelectedFiles={setSelectedFiles}
           />
 
-          {/* Job Description Input & Analyze Trigger */}
+          {}
           <JobDescriptionInput 
             jobDescription={jobDescription}
             setJobDescription={setJobDescription}
@@ -263,18 +269,18 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Right Column: Results Display */}
+        {}
         <div className="lg:col-span-7">
-          {/* CANDIDATE MODE: Single Resume Result */}
+          {}
           {!isRecruiter && (
             <AnalysisResults results={results} />
           )}
 
-          {/* RECRUITER MODE: Bulk Screening Leaderboard */}
+          {}
           {isRecruiter && (
             <div>
               {!bulkResults ? (
-                /* Empty State */
+                
                 <div className="h-full min-h-[420px] clean-panel rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-4 border border-slate-800">
                   <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shadow-inner">
                     <Layers className="w-7 h-7" />
@@ -301,9 +307,9 @@ export default function Dashboard() {
                   </div>
                 </div>
               ) : (
-                /* Bulk Screening Leaderboard Results */
+                
                 <div className="space-y-4">
-                  {/* Summary Metric Counters */}
+                  {}
                   <div className="grid grid-cols-4 gap-2.5">
                     <div className="clean-panel p-3 rounded-lg border border-slate-800 text-center">
                       <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Total Screened</span>
@@ -323,7 +329,7 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Filter & Sort Controls */}
+                  {}
                   <div className="clean-panel px-4 py-2.5 rounded-lg border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-1.5">
                       <span className="text-slate-400 text-[11px]">Filter:</span>
@@ -370,7 +376,7 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Candidate Ranked Cards List */}
+                  {}
                   <div className="space-y-3">
                     {filteredBulkResults.length === 0 ? (
                       <div className="p-6 rounded-xl clean-panel border border-slate-800 text-center text-xs text-slate-400">
@@ -382,7 +388,6 @@ export default function Dashboard() {
                         const scoreColor = score >= 80 ? 'text-emerald-400' : score >= 60 ? 'text-indigo-400' : 'text-amber-400';
                         const scoreBadgeBg = score >= 80 ? 'bg-emerald-500/10 border-emerald-500/30' : score >= 60 ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-amber-500/10 border-amber-500/30';
 
-                        // Rank badge styling
                         const isGold = candidate.rank === 1;
                         const isSilver = candidate.rank === 2;
                         const isBronze = candidate.rank === 3;
@@ -395,7 +400,7 @@ export default function Dashboard() {
                             }`}
                           >
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                              {/* Candidate Info & Rank */}
+                              {}
                               <div className="flex items-start gap-3 min-w-0">
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
                                   isGold 
@@ -425,7 +430,7 @@ export default function Dashboard() {
                                 </div>
                               </div>
 
-                              {/* Scores & Inspect Action */}
+                              {}
                               <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
                                 <div className={`px-2.5 py-1 rounded-lg border text-center ${scoreBadgeBg}`}>
                                   <span className={`text-base font-extrabold ${scoreColor}`}>
@@ -450,7 +455,7 @@ export default function Dashboard() {
                               </div>
                             </div>
 
-                            {/* Skills breakdown chips preview */}
+                            {}
                             <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-1.5 text-[10px]">
                               <span className="text-slate-500 font-medium">Matched:</span>
                               {(candidate.extractedSkills || []).slice(0, 4).map((skill, sIdx) => (
@@ -487,11 +492,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Recruiter Candidate Deep Dive Inspection Modal */}
+      {}
       {selectedCandidateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
           <div className="clean-panel w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl p-6 border border-slate-700 bg-[#0d1322] shadow-2xl space-y-5">
-            {/* Modal Header */}
+            {}
             <div className="flex items-start justify-between border-b border-slate-800 pb-4">
               <div>
                 <div className="flex items-center gap-2">
@@ -514,7 +519,7 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {/* Score Grid */}
+            {}
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-center">
                 <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Overall Match</span>
@@ -538,7 +543,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* AI Summary */}
+            {}
             {selectedCandidateModal.summary && (
               <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
                 <h4 className="text-xs font-semibold text-slate-300 flex items-center gap-1.5 mb-1.5">
@@ -550,9 +555,9 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Skills Breakdown */}
+            {}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Matched Skills */}
+              {}
               <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
                 <h4 className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Matched Skills ({(selectedCandidateModal.extractedSkills || []).length})
@@ -570,7 +575,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Missing Skills */}
+              {}
               <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
                 <h4 className="text-xs font-semibold text-rose-400 flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5" /> Missing Skills ({(selectedCandidateModal.missingSkills || []).length})
@@ -589,7 +594,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* AI Improvement / Coaching Tips */}
+            {}
             {selectedCandidateModal.feedback && selectedCandidateModal.feedback.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1.5">
@@ -608,7 +613,7 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Modal Footer */}
+            {}
             <div className="pt-3 border-t border-slate-800 flex justify-end">
               <button
                 type="button"

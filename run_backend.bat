@@ -1,5 +1,5 @@
 @echo off
-cd /d "e:\SEM 7\Minor project\AI Resume Analyzer"
+cd /d "%~dp0"
 
 echo Killing anything on port 8000...
 FOR /F "tokens=5" %%P IN ('netstat -a -n -o ^| findstr :8000') DO taskkill /F /PID %%P

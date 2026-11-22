@@ -31,15 +31,12 @@ export default function JobBoardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [minMatchFilter, setMinMatchFilter] = useState(0);
 
-  // Modal state for viewing skill breakdown & coaching
   const [selectedJobBreakdown, setSelectedJobBreakdown] = useState(null);
 
-  // Application submission state
   const [applyingJobId, setApplyingJobId] = useState(null);
   const [appliedJobs, setAppliedJobs] = useState(new Set());
   const [applySuccessMsg, setApplySuccessMsg] = useState('');
 
-  // Fetch all active jobs on load
   const fetchJobs = async () => {
     setLoading(true);
     try {
@@ -63,7 +60,6 @@ export default function JobBoardPage() {
     fetchJobs();
   }, [user]);
 
-  // Handle student resume upload to match across all jobs
   const handleResumeUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -90,7 +86,6 @@ export default function JobBoardPage() {
     }
   };
 
-  // Student applies to a specific job
   const handleApply = async (job) => {
     if (!resumeFile && !user?.saved_resume_filename) {
       alert('Please upload your resume PDF or save a resume in your profile first to apply.');
@@ -111,7 +106,7 @@ export default function JobBoardPage() {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
       } else {
-        // Apply with locked profile resume
+        
         res = await axios.post(`/api/jobs/${job._id}/apply`, {
           use_saved_resume: true,
           candidate_name: user?.name || '',
@@ -131,7 +126,6 @@ export default function JobBoardPage() {
     }
   };
 
-  // Filtered list
   const filteredJobs = jobs.filter((job) => {
     const matchesSearch = 
       job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -145,7 +139,7 @@ export default function JobBoardPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      {/* Top Banner & Resume Upload Strip */}
+      {}
       <div className="clean-panel rounded-xl p-5 border border-slate-800">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
@@ -179,7 +173,7 @@ export default function JobBoardPage() {
             </p>
           </div>
 
-          {/* Minimal Upload Button (Candidates only) */}
+          {}
           {user?.role !== 'recruiter' && (
             <div className="w-full md:w-auto flex flex-wrap items-center gap-3">
               <label className="cursor-pointer flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-sm">
@@ -220,7 +214,7 @@ export default function JobBoardPage() {
           )}
         </div>
 
-        {/* Global Success Notification */}
+        {}
         {applySuccessMsg && (
           <div className="mt-4 p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/80 text-emerald-300 text-xs flex items-center gap-2 animate-fadeIn">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -229,7 +223,7 @@ export default function JobBoardPage() {
         )}
       </div>
 
-      {/* Filter & Search Strip */}
+      {}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 clean-panel p-3.5 rounded-xl border border-slate-800">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -260,7 +254,7 @@ export default function JobBoardPage() {
         )}
       </div>
 
-      {/* Job Cards Grid */}
+      {}
       {loading ? (
         <div className="p-12 text-center text-xs text-slate-400 clean-panel rounded-xl">
           Loading active job postings...
@@ -276,7 +270,6 @@ export default function JobBoardPage() {
             const isApplied = appliedJobs.has(job._id);
             const score = job.matchScore || 0;
 
-            // Clean badge styling by score tier
             const badgeClass = score >= 80 
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
               : score >= 60 
@@ -288,7 +281,7 @@ export default function JobBoardPage() {
                 key={job._id}
                 className="clean-card rounded-xl p-5 flex flex-col justify-between space-y-4 hover:border-slate-700 transition-all"
               >
-                {/* Header */}
+                {}
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1">
@@ -297,7 +290,7 @@ export default function JobBoardPage() {
                     <h3 className="text-base font-semibold text-white tracking-tight">{job.title}</h3>
                   </div>
 
-                  {/* Matching Score Pill */}
+                  {}
                   {hasScore ? (
                     <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border flex items-center gap-1 shrink-0 ${badgeClass}`}>
                       <Sparkles className="w-3 h-3" />
@@ -310,7 +303,7 @@ export default function JobBoardPage() {
                   )}
                 </div>
 
-                {/* Metadata Pills */}
+                {}
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
                   <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 border border-slate-800">
                     <MapPin className="w-3 h-3 text-slate-500" /> {job.location_type}
@@ -323,12 +316,12 @@ export default function JobBoardPage() {
                   </span>
                 </div>
 
-                {/* Description Excerpt */}
+                {}
                 <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
                   {job.job_description}
                 </p>
 
-                {/* Skills Preview */}
+                {}
                 {job.extracted_skills && job.extracted_skills.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {job.extracted_skills.slice(0, 6).map((skill, sIdx) => {
@@ -354,7 +347,7 @@ export default function JobBoardPage() {
                   </div>
                 )}
 
-                {/* Action Buttons */}
+                {}
                 <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
                   {hasScore ? (
                     <button
@@ -407,7 +400,7 @@ export default function JobBoardPage() {
         </div>
       )}
 
-      {/* Skill Breakdown & AI Coaching Modal */}
+      {}
       {selectedJobBreakdown && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
           <div className="clean-panel max-w-lg w-full rounded-xl p-6 border border-slate-700 space-y-4 shadow-xl">
@@ -430,7 +423,7 @@ export default function JobBoardPage() {
               </button>
             </div>
 
-            {/* Score Stats */}
+            {}
             <div className="grid grid-cols-3 gap-2 text-center p-3 rounded-lg bg-slate-900 border border-slate-800">
               <div>
                 <span className="text-[10px] text-slate-400 uppercase">Match Score</span>
@@ -446,7 +439,7 @@ export default function JobBoardPage() {
               </div>
             </div>
 
-            {/* Matched Skills */}
+            {}
             <div>
               <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 mb-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Matched Skills ({selectedJobBreakdown.matchedSkills?.length || 0})
@@ -464,7 +457,7 @@ export default function JobBoardPage() {
               </div>
             </div>
 
-            {/* Missing Skills */}
+            {}
             <div>
               <span className="text-xs font-semibold text-rose-400 flex items-center gap-1.5 mb-1.5">
                 <XCircle className="w-3.5 h-3.5" /> Missing Requirements ({selectedJobBreakdown.missingSkills?.length || 0})
@@ -482,7 +475,7 @@ export default function JobBoardPage() {
               </div>
             </div>
 
-            {/* Modal Footer */}
+            {}
             <div className="pt-2 flex justify-end gap-2 border-t border-slate-800">
               <button
                 onClick={() => setSelectedJobBreakdown(null)}

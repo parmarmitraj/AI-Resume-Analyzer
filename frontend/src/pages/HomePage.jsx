@@ -55,7 +55,7 @@ export default function HomePage() {
 
   return (
     <div className="space-y-16 pb-16">
-      {/* Hero Section */}
+      {}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 text-center space-y-6">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-xs font-medium text-indigo-400">
           <Sparkles className="w-3.5 h-3.5" />
@@ -71,7 +71,7 @@ export default function HomePage() {
           A modern recruitment hub connecting candidates and recruiters. Candidates discover real-time match scores on active jobs, while recruiters get incoming applicants automatically sorted from highest match to lowest.
         </p>
 
-        {/* Primary Action Buttons */}
+        {}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
           <button
             onClick={() => handleProtectedNavigate('/jobs')}
@@ -100,10 +100,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Dual Role Showcase Cards */}
+      {}
       <section className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Candidate Card */}
+          {}
           <div className="clean-panel rounded-xl p-6 sm:p-8 border border-slate-800 flex flex-col justify-between space-y-6 hover:border-slate-700 transition-all">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
@@ -146,7 +146,7 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Recruiter Card */}
+          {}
           <div className="clean-panel rounded-xl p-6 sm:p-8 border border-slate-800 flex flex-col justify-between space-y-6 hover:border-slate-700 transition-all">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
@@ -191,7 +191,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 3-Step "How It Works" Section */}
+      {}
       <section className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="clean-panel rounded-xl p-8 border border-slate-800 space-y-8">
           <div className="text-center max-w-md mx-auto space-y-1">
@@ -220,7 +220,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Bottom CTA Strip */}
+      {}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
         <div className="clean-panel rounded-xl p-8 border border-slate-800 space-y-4">
           <h3 className="text-lg font-bold text-white">Ready to test your resume or post an opening?</h3>
@@ -244,7 +244,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Authentication Modal */}
+      {}
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}

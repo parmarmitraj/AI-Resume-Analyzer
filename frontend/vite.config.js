@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -13,13 +12,13 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // Auth routes → Node.js / Express backend (port 5000)
+      
       '/api/auth': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
         secure: false,
       },
-      // Job & resume routes → Node.js / Express backend (port 5000)
+      
       '/api/jobs': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
@@ -30,16 +29,18 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      // ML routes → Python FastAPI backend (port 8000)
+      
       '/api/student': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false,
+        timeout: 300000,
       },
       '/api/recruiter': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false,
+        timeout: 300000,
       },
     },
   },

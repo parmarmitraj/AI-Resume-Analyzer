@@ -1,4 +1,4 @@
-import pymupdf as fitz  # This is the module name for PyMuPDF
+import pymupdf as fitz                                       
 
 def extract_text_from_pdf(pdf_source):
     """
@@ -15,4 +15,4 @@ def extract_text_from_pdf(pdf_source):
         full_text += page.get_text()
 
     doc.close()
-    return full_text
+    return full_text

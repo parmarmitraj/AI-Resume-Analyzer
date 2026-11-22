@@ -29,7 +29,6 @@ export default function RecruiterPortal() {
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingApplicants, setLoadingApplicants] = useState(false);
 
-  // Job Creation Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newJob, setNewJob] = useState({
     title: '',
@@ -41,14 +40,10 @@ export default function RecruiterPortal() {
   });
   const [isCreatingJob, setIsCreatingJob] = useState(false);
 
-
-  // Selected candidate detail modal
   const [viewingCandidate, setViewingCandidate] = useState(null);
 
-  // Search filter
   const [applicantSearch, setApplicantSearch] = useState('');
 
-  // Fetch all jobs for this recruiter's company
   const fetchJobs = async () => {
     setLoadingJobs(true);
     try {
@@ -70,7 +65,6 @@ export default function RecruiterPortal() {
     fetchJobs();
   }, [user]);
 
-  // Fetch applicants for selected job (automatically sorted by match score DESC by backend)
   const handleSelectJob = async (job) => {
     setSelectedJob(job);
     setLoadingApplicants(true);
@@ -87,7 +81,6 @@ export default function RecruiterPortal() {
     }
   };
 
-  // Create new job posting (company is automatically inherited from recruiter profile)
   const handleCreateJob = async (e) => {
     e.preventDefault();
     if (!newJob.title || !newJob.job_description) {
@@ -119,7 +112,6 @@ export default function RecruiterPortal() {
     }
   };
 
-  // Delete job posting
   const handleDeleteJob = async (jobId, e) => {
     e.stopPropagation();
     if (!window.confirm('Delete this job posting and all its applicants?')) return;
@@ -138,8 +130,6 @@ export default function RecruiterPortal() {
     }
   };
 
-
-  // Update applicant review status & notes
   const handleStatusChange = async (appId, newStatus) => {
     try {
       await axios.patch(`/api/applications/${appId}/status`, { status: newStatus });
@@ -158,7 +148,6 @@ export default function RecruiterPortal() {
     }
   };
 
-  // Export ranked applicants to CSV
   const handleExportCSV = async () => {
     if (!selectedJob) return;
     try {
@@ -177,14 +166,12 @@ export default function RecruiterPortal() {
     }
   };
 
-  // Filtered applicants
   const filteredApplicants = applicants.filter(a =>
     a.candidate_name?.toLowerCase().includes(applicantSearch.toLowerCase()) ||
     a.resume_filename?.toLowerCase().includes(applicantSearch.toLowerCase()) ||
     (a.matched_skills && a.matched_skills.some(s => s.toLowerCase().includes(applicantSearch.toLowerCase())))
   );
 
-  // If logged in as a candidate, show candidate-specific notice
   if (user?.role === 'candidate') {
     return (
       <div className="max-w-xl mx-auto px-4 py-20 text-center space-y-4">
@@ -219,7 +206,7 @@ export default function RecruiterPortal() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      {/* Header & Job Creation Button */}
+      {}
       <div className="clean-panel rounded-xl p-5 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -253,9 +240,9 @@ export default function RecruiterPortal() {
         </button>
       </div>
 
-      {/* Main Split Layout: Jobs Sidebar + Ranked Applicants */}
+      {}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Active Job Postings List (4 cols) */}
+        {}
         <div className="lg:col-span-4 space-y-3">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -322,11 +309,11 @@ export default function RecruiterPortal() {
           )}
         </div>
 
-        {/* Right Column: Ranked Applicant Leaderboard for Selected Job (8 cols) */}
+        {}
         <div className="lg:col-span-8 space-y-4">
           {selectedJob ? (
             <div className="clean-panel rounded-xl p-5 border border-slate-800 space-y-4">
-              {/* Job Header Strip & Actions */}
+              {}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                 <div>
                   <span className="text-[10px] uppercase font-semibold text-indigo-400">
@@ -350,7 +337,7 @@ export default function RecruiterPortal() {
                 </div>
               </div>
 
-              {/* Search Bar */}
+              {}
               <div className="flex items-center justify-between gap-3">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -369,7 +356,7 @@ export default function RecruiterPortal() {
                 </div>
               </div>
 
-              {/* Leaderboard Table */}
+              {}
               {loadingApplicants ? (
                 <div className="p-12 text-center text-xs text-slate-400">
                   Loading applicant scores...
@@ -403,7 +390,7 @@ export default function RecruiterPortal() {
                         
                         return (
                           <tr key={app._id} className="hover:bg-slate-900/50 transition-colors">
-                            {/* Rank Medal */}
+                            {}
                             <td className="py-3 px-3 font-bold text-slate-300 whitespace-nowrap">
                               <span className={`px-2 py-0.5 rounded text-[11px] ${
                                 rank === 1 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30 font-extrabold' :
@@ -415,7 +402,7 @@ export default function RecruiterPortal() {
                               </span>
                             </td>
 
-                            {/* Candidate Info */}
+                            {}
                             <td className="py-3 px-3">
                               <div className="font-semibold text-white">{app.candidate_name}</div>
                               <div className="text-[11px] text-slate-500 truncate max-w-[150px]">
@@ -423,7 +410,7 @@ export default function RecruiterPortal() {
                               </div>
                             </td>
 
-                            {/* Match Score & Progress Bar */}
+                            {}
                             <td className="py-3 px-3 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <div className="w-16 bg-slate-900 rounded-full h-1.5 overflow-hidden border border-slate-800">
@@ -438,7 +425,7 @@ export default function RecruiterPortal() {
                               </div>
                             </td>
 
-                            {/* Skills Matched count */}
+                            {}
                             <td className="py-3 px-3">
                               <span className="text-[11px] text-emerald-400 font-medium">
                                 {app.matched_skills?.length || 0} matched
@@ -448,7 +435,7 @@ export default function RecruiterPortal() {
                               </span>
                             </td>
 
-                            {/* Status Selector */}
+                            {}
                             <td className="py-3 px-3">
                               <select
                                 value={app.status || 'Applied'}
@@ -462,7 +449,7 @@ export default function RecruiterPortal() {
                               </select>
                             </td>
 
-                            {/* Action */}
+                            {}
                             <td className="py-3 px-3 text-right">
                               <button
                                 onClick={() => setViewingCandidate(app)}
@@ -487,7 +474,7 @@ export default function RecruiterPortal() {
         </div>
       </div>
 
-      {/* Candidate Details Modal */}
+      {}
       {viewingCandidate && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="clean-panel max-w-lg w-full rounded-xl p-6 border border-slate-700 space-y-4 shadow-xl">
@@ -508,7 +495,7 @@ export default function RecruiterPortal() {
               </button>
             </div>
 
-            {/* Score Band */}
+            {}
             <div className="grid grid-cols-3 gap-2 text-center p-3 rounded-lg bg-slate-900 border border-slate-800">
               <div>
                 <span className="text-[10px] text-slate-400 uppercase">Match Score</span>
@@ -524,7 +511,7 @@ export default function RecruiterPortal() {
               </div>
             </div>
 
-            {/* Summary */}
+            {}
             {viewingCandidate.feedback?.summary && (
               <div>
                 <span className="text-xs font-semibold text-slate-300 block mb-1">Executive Summary</span>
@@ -534,7 +521,7 @@ export default function RecruiterPortal() {
               </div>
             )}
 
-            {/* Recruiter Notes */}
+            {}
             <div>
               <span className="text-xs font-semibold text-slate-300 block mb-1">Internal Recruiter Notes</span>
               <textarea
@@ -550,7 +537,7 @@ export default function RecruiterPortal() {
               />
             </div>
 
-            {/* Skills */}
+            {}
             <div>
               <span className="text-xs font-semibold text-emerald-400 block mb-1.5">Matched Skills</span>
               <div className="flex flex-wrap gap-1">
@@ -585,7 +572,7 @@ export default function RecruiterPortal() {
         </div>
       )}
 
-      {/* Post New Job Modal */}
+      {}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="clean-panel max-w-xl w-full rounded-xl p-6 border border-slate-700 space-y-4 shadow-xl">

@@ -6,10 +6,6 @@ const { extractSkills } = require('../services/skillExtractor');
 const { calculateMatch } = require('../services/matcherService');
 const { generateFeedback } = require('../services/geminiService');
 
-/**
- * Standalone Single Resume Analysis against a custom JD
- * (Maintains contract with existing /api/student/analyze)
- */
 exports.analyzeSingleResume = async (req, res) => {
   try {
     if (!req.file) {
@@ -25,10 +21,8 @@ exports.analyzeSingleResume = async (req, res) => {
     const resumeBuffer = req.file.buffer;
     const resumeText = await extractTextFromPDF(resumeBuffer);
 
-    // Compute ML Match metrics
     const match = calculateMatch(resumeText, job_description.trim());
 
-    // Generate AI feedback
     const feedback = await generateFeedback({
       matchResults: match,
       resumeText,
@@ -57,9 +51,6 @@ exports.analyzeSingleResume = async (req, res) => {
   }
 };
 
-/**
- * Aggregated Analytics & Skill Demand Statistics
- */
 exports.getAnalytics = async (req, res) => {
   try {
     let totalJobs = 0;
@@ -85,12 +76,11 @@ exports.getAnalytics = async (req, res) => {
         }
       }
 
-      // Also aggregate from JobPostings required skills
       const jobs = await JobPosting.find({}, 'extracted_skills').lean();
       for (const job of jobs) {
         for (const s of (job.extracted_skills || [])) {
           const clean = s.trim().toLowerCase();
-          skillCounts[clean] = (skillCounts[clean] || 0) + 2; // Weight JD required skills higher
+          skillCounts[clean] = (skillCounts[clean] || 0) + 2; 
         }
       }
     } else {
@@ -140,10 +130,6 @@ exports.getAnalytics = async (req, res) => {
   }
 };
 
-/**
- * Ad-Hoc Multi-Resume Screening against custom Job Description
- * Allows recruiters to upload and evaluate multiple candidate resumes simultaneously
- */
 exports.analyzeMultipleResumes = async (req, res) => {
   try {
     const files = req.files || (req.file ? [req.file] : []);
@@ -199,7 +185,6 @@ exports.analyzeMultipleResumes = async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Could not extract text from provided PDF resumes.' });
     }
 
-    // Sort descending by matchScore
     rankedResults.sort((a, b) => b.matchScore - a.matchScore);
     rankedResults.forEach((r, idx) => {
       r.rank = idx + 1;
@@ -215,5 +200,3 @@ exports.analyzeMultipleResumes = async (req, res) => {
     return res.status(500).json({ status: 'error', message: error.message });
   }
 };
-
-

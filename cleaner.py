@@ -12,10 +12,6 @@ Changes vs. original:
 
 import re
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Stopword list — mirrors spaCy's en_core_web_sm common stopwords
-# (extended with resume-specific filler words)
-# ─────────────────────────────────────────────────────────────────────────────
 _STOPWORDS = {
     "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you",
     "your", "yours", "yourself", "yourselves", "he", "him", "his", "himself",
@@ -34,7 +30,7 @@ _STOPWORDS = {
     "o", "re", "ve", "y", "ain", "aren", "couldn", "didn", "doesn", "hadn",
     "hasn", "haven", "isn", "ma", "mightn", "mustn", "needn", "shan", "shouldn",
     "wasn", "weren", "won", "wouldn",
-    # Resume-specific filler
+                            
     "experience", "experienced", "work", "working", "worked", "knowledge",
     "understanding", "familiarity", "familiar", "ability", "abilities",
     "skill", "skills", "proficient", "proficiency", "good", "great",
@@ -50,10 +46,6 @@ _STOPWORDS = {
     "maintained", "maintaining", "provide", "provided", "ensuring", "ensure",
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Minimal suffix-stripping lemmatiser (handles -ing, -ed, -tion, -ment, -er, -s)
-# Not as accurate as spaCy but good enough for TF-IDF vocabulary matching.
-# ─────────────────────────────────────────────────────────────────────────────
 _LEMMA_SUFFIXES = [
     ("ization", "ize"), ("isation", "ise"), ("ations", "ate"), ("ation", "ate"),
     ("ments", "ment"), ("ment", ""),  ("nesses", ""), ("ness", ""),
@@ -66,8 +58,7 @@ _LEMMA_SUFFIXES = [
     ("es", ""), ("s", ""),
 ]
 
-_MIN_STEM_LEN = 4   # Only strip suffix if the remaining stem is ≥ this length
-
+_MIN_STEM_LEN = 4                                                             
 
 def _lemmatize(word: str) -> str:
     """Very lightweight suffix-stripping lemmatisation."""
@@ -78,10 +69,6 @@ def _lemmatize(word: str) -> str:
                 return stem
     return word
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Public API
-# ─────────────────────────────────────────────────────────────────────────────
 def clean_resume_text(raw_text: str) -> str:
     """
     Cleans resume text for TF-IDF vectorisation.
@@ -100,30 +87,24 @@ def clean_resume_text(raw_text: str) -> str:
     Returns:
         A clean, lowercase, lemmatised string ready for TF-IDF.
     """
-    # Step 1: Normalise whitespace
+                                  
     text = re.sub(r"\s+", " ", raw_text).strip()
 
-    # Step 2: Tokenise — keep only letter/digit tokens (ignore punctuation tokens)
     tokens = re.findall(r"[A-Za-z]{2,}", text)
 
     cleaned = []
     for tok in tokens:
         low = tok.lower()
-        # Step 3–4: Skip stopwords and very short tokens
+                                                        
         if low in _STOPWORDS or len(low) < 2:
             continue
-        # Step 5: Lemmatise
+                           
         lemma = _lemmatize(low)
         if lemma and len(lemma) >= 2 and lemma not in _STOPWORDS:
             cleaned.append(lemma)
 
-    # Step 6: Rejoin
     return " ".join(cleaned)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Standalone test
-# ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     sample = (
         "Developed a backend using Node.js and MongoDB. "

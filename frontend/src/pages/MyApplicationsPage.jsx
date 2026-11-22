@@ -20,7 +20,6 @@ export default function MyApplicationsPage() {
   const [isUpdatingResume, setIsUpdatingResume] = useState(false);
   const [resumeUpdateSuccess, setResumeUpdateSuccess] = useState('');
 
-  // Fetch applications
   const fetchMyApplications = async () => {
     setLoading(true);
     try {
@@ -39,7 +38,6 @@ export default function MyApplicationsPage() {
     fetchMyApplications();
   }, []);
 
-  // Update persistent resume
   const handleResumeChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -59,7 +57,7 @@ export default function MyApplicationsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      {/* Page Title */}
+      {}
       <div className="clean-panel rounded-xl p-5 border border-slate-800">
         <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
           Candidate Portal
@@ -168,7 +166,7 @@ export default function MyApplicationsPage() {
 
                   return (
                     <tr key={app._id} className="hover:bg-slate-900/50 transition-colors">
-                      {/* Job Title & Company */}
+                      {}
                       <td className="py-3 px-3">
                         <div className="font-semibold text-white">{job.title || 'Technical Role'}</div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
@@ -178,12 +176,12 @@ export default function MyApplicationsPage() {
                         </div>
                       </td>
 
-                      {/* Date */}
+                      {}
                       <td className="py-3 px-3 text-slate-400 whitespace-nowrap">
                         {new Date(app.createdAt).toISOString().split('T')[0]}
                       </td>
 
-                      {/* Match Score */}
+                      {}
                       <td className="py-3 px-3 whitespace-nowrap">
                         <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
                           score >= 80 ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/80' :
@@ -194,14 +192,14 @@ export default function MyApplicationsPage() {
                         </span>
                       </td>
 
-                      {/* Status */}
+                      {}
                       <td className="py-3 px-3 whitespace-nowrap">
                         <span className={`px-2 py-0.5 rounded text-[11px] font-medium border ${statusClass}`}>
                           {status}
                         </span>
                       </td>
 
-                      {/* Missing requirements */}
+                      {}
                       <td className="py-3 px-3">
                         <div className="flex flex-wrap gap-1 max-w-[200px]">
                           {(app.missing_skills || []).slice(0, 3).map((s, idx) => (
@@ -218,7 +216,7 @@ export default function MyApplicationsPage() {
                         </div>
                       </td>
 
-                      {/* Recruiter Notes */}
+                      {}
                       <td className="py-3 px-3 text-slate-400 max-w-[180px] truncate">
                         {app.recruiter_notes || <span className="text-slate-600">—</span>}
                       </td>

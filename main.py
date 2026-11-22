@@ -20,15 +20,13 @@ from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from matcher import process_resume
+from matcher import process_resume, normalize_and_infer
+from cleaner import clean_resume_text
 from feedback import generate_feedback
-from skill_extractor import load_model_artifacts
+from skill_extractor import load_model_artifacts, extract_skills
 
 logger = logging.getLogger("uvicorn.error")
 
-# ---------------------------------------------------------------------------
-# Lifespan: load BiLSTM model ONCE at startup, not per-request
-# ---------------------------------------------------------------------------
 _model_ready = False
 
 @asynccontextmanager
@@ -56,14 +54,10 @@ async def lifespan(app: FastAPI):
         logger.error(f"Unexpected error loading NER model: {exc}")
         _model_ready = False
 
-    yield  # API is now live
+    yield                   
 
     logger.info("Server shutting down. Model resources released.")
 
-
-# ---------------------------------------------------------------------------
-# FastAPI Application
-# ---------------------------------------------------------------------------
 app = FastAPI(
     title="AI Resume Analyzer API",
     description=(
@@ -74,7 +68,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow the React Vite dev server and any localhost origin
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173",
@@ -84,10 +77,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ---------------------------------------------------------------------------
-# Shared guard: reject ML requests if the model failed to load
-# ---------------------------------------------------------------------------
 def _require_model():
     if not _model_ready:
         raise HTTPException(
@@ -99,10 +88,6 @@ def _require_model():
             ),
         )
 
-
-# ---------------------------------------------------------------------------
-# Health Check
-# ---------------------------------------------------------------------------
 @app.get("/api/health")
 async def health_check():
     return {
@@ -111,10 +96,6 @@ async def health_check():
         "version": "2.0.0",
     }
 
-
-# ---------------------------------------------------------------------------
-# Endpoint A: Student Portal - Single Resume Analysis + Gemini Feedback
-# ---------------------------------------------------------------------------
 @app.post("/api/student/analyze", status_code=status.HTTP_200_OK)
 async def analyze_student_resume(
     resume: UploadFile = File(..., description="Candidate resume PDF"),
@@ -135,7 +116,6 @@ async def analyze_student_resume(
     """
     _require_model()
 
-    # --- Input Validation ---
     if not resume.filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -147,7 +127,6 @@ async def analyze_student_resume(
             detail="Job description cannot be empty.",
         )
 
-    # --- Read PDF bytes ---
     pdf_bytes = await resume.read()
     if not pdf_bytes:
         raise HTTPException(
@@ -156,15 +135,14 @@ async def analyze_student_resume(
         )
 
     try:
-        # --- Step 1: ML Scoring (BiLSTM NER + TF-IDF Cosine) ---
+                                                                 
         match_result = process_resume(
             pdf_bytes,
             job_description.strip(),
-            return_raw_text=True,   # we need raw text for Gemini prompt
+            return_raw_text=True,                                       
         )
         raw_resume_text = match_result.pop("raw_text", "")
 
-        # --- Step 2: Gemini AI Qualitative Feedback ---
         ai_feedback_obj = {}
         try:
             feedback_json_str = generate_feedback(
@@ -182,7 +160,6 @@ async def analyze_student_resume(
                 "genuine_score": match_result.get("final_match_pct", 0),
             }
 
-        # --- Step 3: Compose flat response envelope ---
         return {
             "status": "success",
             "final_match_pct": match_result["final_match_pct"],
@@ -202,10 +179,6 @@ async def analyze_student_resume(
             detail=f"Resume analysis failed: {str(exc)}",
         )
 
-
-# ---------------------------------------------------------------------------
-# Endpoint B: Recruiter Portal - Bulk Candidate Ranking (scores only, fast)
-# ---------------------------------------------------------------------------
 async def _do_bulk_rank(resumes: List[UploadFile], job_description: str):
     """
     Shared implementation for both /rank and /bulk-rank route aliases.
@@ -228,6 +201,10 @@ async def _do_bulk_rank(resumes: List[UploadFile], job_description: str):
     candidates = []
     skipped_files = []
 
+    jd_raw_skills = extract_skills(job_description.strip())
+    jd_skills = normalize_and_infer(jd_raw_skills)
+    clean_jd = clean_resume_text(job_description.strip())
+
     for file in resumes:
         if not file.filename.lower().endswith(".pdf"):
             skipped_files.append({
@@ -245,13 +222,26 @@ async def _do_bulk_rank(resumes: List[UploadFile], job_description: str):
                 })
                 continue
 
-            result = process_resume(pdf_bytes, job_description.strip())
+            result = process_resume(
+                pdf_bytes,
+                job_description.strip(),
+                jd_skills=jd_skills,
+                clean_jd=clean_jd
+            )
+            clean_name = file.filename.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").title()
             candidates.append({
+                "candidateName": clean_name,
+                "fileName": file.filename,
                 "filename": file.filename,
+                "matchScore": result["final_match_pct"],
                 "final_match_pct": result["final_match_pct"],
+                "skillScore": result["skill_score_pct"],
                 "skill_score_pct": result["skill_score_pct"],
+                "contextScore": result["context_score_pct"],
                 "context_score_pct": result["context_score_pct"],
+                "extractedSkills": result["matched_skills"],
                 "matched_skills": result["matched_skills"],
+                "missingSkills": result["missing_skills"],
                 "missing_skills": result["missing_skills"],
                 "matched_skills_count": len(result["matched_skills"]),
                 "missing_skills_count": len(result["missing_skills"]),
@@ -262,9 +252,8 @@ async def _do_bulk_rank(resumes: List[UploadFile], job_description: str):
                 "reason": f"Processing failed: {str(exc)}",
             })
 
-    # Sort descending by Final Match %
     candidates.sort(key=lambda c: c["final_match_pct"], reverse=True)
-    leaderboard = [{"rank": i + 1, **c} for i, c in enumerate(candidates)]
+    leaderboard = [{"id": f"cand-{i + 1}", "rank": i + 1, **c} for i, c in enumerate(candidates)]
 
     return {
         "status": "success",
@@ -274,7 +263,6 @@ async def _do_bulk_rank(resumes: List[UploadFile], job_description: str):
         "leaderboard": leaderboard,
         "skipped_files": skipped_files,
     }
-
 
 @app.post("/api/recruiter/rank", status_code=status.HTTP_200_OK)
 async def rank_resumes(
@@ -288,7 +276,6 @@ async def rank_resumes(
     """
     return await _do_bulk_rank(resumes, job_description)
 
-
 @app.post("/api/recruiter/bulk-rank", status_code=status.HTTP_200_OK)
 async def bulk_rank_resumes(
     resumes: List[UploadFile] = File(..., description="Multiple candidate resume PDFs"),
@@ -297,10 +284,6 @@ async def bulk_rank_resumes(
     """Legacy alias for /api/recruiter/rank — kept for backward compatibility."""
     return await _do_bulk_rank(resumes, job_description)
 
-
-# ---------------------------------------------------------------------------
-# Dev Server Entry Point
-# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

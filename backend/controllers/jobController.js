@@ -7,10 +7,6 @@ const { extractSkills } = require('../services/skillExtractor');
 const { calculateMatch } = require('../services/matcherService');
 const { generateFeedback } = require('../services/geminiService');
 
-/**
- * Recruiter creates a new Job Posting
- * Automatically extracts technical skills from the job description
- */
 exports.createJob = async (req, res) => {
   try {
     const {
@@ -30,14 +26,12 @@ exports.createJob = async (req, res) => {
       });
     }
 
-    // Auto-extract required skills from the job description
     const autoSkills = extractSkills(job_description);
     const combinedSkills = Array.from(new Set([
       ...autoSkills,
       ...(Array.isArray(custom_skills) ? custom_skills.map(s => s.toLowerCase().trim()) : [])
     ]));
 
-    // Inherit company automatically from the authenticated recruiter profile
     let finalCompany = '';
     const recruiterId = req.user ? req.user.id : null;
 
@@ -88,11 +82,6 @@ exports.createJob = async (req, res) => {
   }
 };
 
-/**
- * Get all active Job Postings
- * Candidates see all active jobs across companies.
- * Recruiters ONLY see the openings in their own company.
- */
 exports.getJobs = async (req, res) => {
   try {
     let jobs = [];
@@ -114,7 +103,6 @@ exports.getJobs = async (req, res) => {
     if (isMongoConnected()) {
       let query = {};
 
-      // If recruiter, strictly filter to openings in their company or created by them
       if (isRecruiter) {
         const conditions = [];
         if (req.user && req.user.id) {
@@ -131,7 +119,6 @@ exports.getJobs = async (req, res) => {
         .sort({ createdAt: -1 })
         .lean();
       
-      // Attach applicant counts and fallback company from recruiter
       for (const job of jobs) {
         if (!job.company && job.recruiter_id && job.recruiter_id.company) {
           job.company = job.recruiter_id.company;
@@ -181,7 +168,6 @@ exports.getJobs = async (req, res) => {
       }
     }
 
-    // For candidates with a saved resume, compute personal match scores
     if (!isRecruiter && userRecord && userRecord.saved_resume_text) {
       jobs = jobs.map(job => {
         const match = calculateMatch(userRecord.saved_resume_text, job.job_description);
@@ -196,7 +182,6 @@ exports.getJobs = async (req, res) => {
         };
       });
 
-      // Sort by matchScore descending
       jobs.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
     } else if (!isRecruiter && req.user && appliedJobIds.size > 0) {
       jobs = jobs.map(job => ({
@@ -216,9 +201,6 @@ exports.getJobs = async (req, res) => {
   }
 };
 
-/**
- * Get single Job Posting by ID
- */
 exports.getJobById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -239,9 +221,6 @@ exports.getJobById = async (req, res) => {
   }
 };
 
-/**
- * Delete a Job Posting and its associated applications
- */
 exports.deleteJob = async (req, res) => {
   try {
     const { id } = req.params;
@@ -284,10 +263,6 @@ exports.deleteJob = async (req, res) => {
   }
 };
 
-/**
- * Student uploads a resume (or triggers match using locked profile resume) and evaluates it against ALL active Job Postings
- * Returns all jobs with a personalized matching score %
- */
 exports.matchJobsForResume = async (req, res) => {
   try {
     let resumeText = '';
@@ -323,7 +298,6 @@ exports.matchJobsForResume = async (req, res) => {
       });
     }
 
-    // Retrieve active jobs
     let jobs = [];
     if (isMongoConnected()) {
       jobs = await JobPosting.find({ status: 'active' }).lean();
@@ -331,7 +305,6 @@ exports.matchJobsForResume = async (req, res) => {
       jobs = memoryStore.jobs.filter(j => j.status === 'active');
     }
 
-    // Calculate match score for every job
     const evaluatedJobs = jobs.map(job => {
       const match = calculateMatch(resumeText, job.job_description);
       return {
@@ -344,7 +317,6 @@ exports.matchJobsForResume = async (req, res) => {
       };
     });
 
-    // Sort jobs from highest match to lowest match
     evaluatedJobs.sort((a, b) => b.matchScore - a.matchScore);
 
     return res.status(200).json({
@@ -360,10 +332,6 @@ exports.matchJobsForResume = async (req, res) => {
   }
 };
 
-/**
- * Student applies to a specific job with resume (uploaded file OR locked profile resume)
- * Computes full score + Gemini coaching feedback and persists the application
- */
 exports.applyToJob = async (req, res) => {
   try {
     const { id } = req.params;
@@ -397,7 +365,6 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
-    // Retrieve job
     let job;
     if (isMongoConnected()) {
       job = await JobPosting.findById(id).lean();
@@ -417,7 +384,6 @@ exports.applyToJob = async (req, res) => {
           ? candidate_name.trim() 
           : resumeFilename.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '));
 
-    // Check if candidate has already applied
     if (candidateId || candidateEmail) {
       let existingApp = null;
       if (isMongoConnected()) {
@@ -446,7 +412,6 @@ exports.applyToJob = async (req, res) => {
 
     const match = calculateMatch(resumeText, job.job_description);
 
-    // AI Coaching Feedback
     const feedback = await generateFeedback({
       matchResults: match,
       resumeText,
@@ -495,9 +460,6 @@ exports.applyToJob = async (req, res) => {
   }
 };
 
-/**
- * Recruiter retrieves all applicants for a job, AUTOMATICALLY SORTED by match score DESC
- */
 exports.getJobApplicants = async (req, res) => {
   try {
     const { id } = req.params;
@@ -536,7 +498,6 @@ exports.getJobApplicants = async (req, res) => {
         .sort((a, b) => b.final_match_pct - a.final_match_pct);
     }
 
-    // Attach 1-based ranks
     const rankedApplicants = applicants.map((app, index) => ({
       rank: index + 1,
       ...app
@@ -553,9 +514,6 @@ exports.getJobApplicants = async (req, res) => {
   }
 };
 
-/**
- * Recruiter updates applicant status (Applied, Shortlisted, Reviewed, Rejected) & notes
- */
 exports.updateApplicantStatus = async (req, res) => {
   try {
     const { applicationId } = req.params;
@@ -594,9 +552,6 @@ exports.updateApplicantStatus = async (req, res) => {
   }
 };
 
-/**
- * Recruiter exports job applicants leaderboard as a clean CSV
- */
 exports.exportApplicantsCSV = async (req, res) => {
   try {
     const { id } = req.params;
@@ -610,7 +565,6 @@ exports.exportApplicantsCSV = async (req, res) => {
         .sort((a, b) => b.final_match_pct - a.final_match_pct);
     }
 
-    // Generate CSV Content
     const headers = ['Rank', 'Candidate Name', 'Email', 'Resume Filename', 'Match Score %', 'Skill Score %', 'Context Score %', 'Matched Skills', 'Missing Skills', 'Status', 'Recruiter Notes', 'Applied Date'];
     const rows = applicants.map((app, index) => [
       index + 1,
@@ -638,9 +592,6 @@ exports.exportApplicantsCSV = async (req, res) => {
   }
 };
 
-/**
- * Recruiter bulk screens multiple resumes directly for a specific job
- */
 exports.bulkScreenResumes = async (req, res) => {
   try {
     const { id } = req.params;
@@ -705,7 +656,6 @@ exports.bulkScreenResumes = async (req, res) => {
       }
     }
 
-    // Sort by final_match_pct DESC
     processedCandidates.sort((a, b) => b.final_match_pct - a.final_match_pct);
 
     return res.status(200).json({

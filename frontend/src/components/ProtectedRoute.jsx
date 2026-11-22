@@ -2,12 +2,6 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-/**
- * Route guard that requires user to be authenticated.
- * If not authenticated, redirects to the Home page ('/').
- * If allowedRole is specified and user does not have that role,
- * redirects to their role's primary hub.
- */
 export default function ProtectedRoute({ children, allowedRole }) {
   const { user, loading } = useAuth();
 
@@ -20,12 +14,10 @@ export default function ProtectedRoute({ children, allowedRole }) {
     );
   }
 
-  // Not authenticated: strictly redirect to Home landing page
   if (!user) {
     return <Navigate to="/" replace />;
   }
 
-  // Role restriction enforcement
   if (allowedRole && user.role !== allowedRole) {
     return <Navigate to={user.role === 'recruiter' ? '/recruiter' : '/jobs'} replace />;
   }

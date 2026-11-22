@@ -26,17 +26,16 @@ export default function Navbar() {
     navigate('/');
   };
 
-  // Strictly tailor navigation options according to role
   let navItems = [];
   if (user?.role === 'candidate') {
-    // Candidate / Job Seeker options only
+    
     navItems = [
       { name: 'Jobs & Matching', path: '/jobs', icon: Briefcase },
       { name: 'My Applications', path: '/applications', icon: Layers },
       { name: 'Resume Auditor', path: '/auditor', icon: FileText },
     ];
   } else if (user?.role === 'recruiter') {
-    // Recruiter / Hiring Manager options only
+    
     navItems = [
       { name: 'Recruiter Hub', path: '/recruiter', icon: Users },
       { name: 'Active Openings', path: '/jobs', icon: Briefcase },
@@ -44,10 +43,8 @@ export default function Navbar() {
     ];
   }
 
-  // Show nav tabs strictly when authenticated user is logged in
   const showNavTabs = Boolean(user);
 
-  // Dynamic brand logo target based on role
   const brandDestination = user?.role === 'recruiter' 
     ? '/recruiter' 
     : user?.role === 'candidate' 
@@ -63,7 +60,7 @@ export default function Navbar() {
     <>
       <header className="sticky top-0 z-40 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          {/* Brand Logo - Routes according to role */}
+          {}
           <NavLink to={brandDestination} className="flex items-center gap-2.5 group shrink-0">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-sm">
               <Sparkles className="w-4 h-4" />
@@ -78,7 +75,7 @@ export default function Navbar() {
             </div>
           </NavLink>
 
-          {/* Navigation Tabs - Visible after login or on inner pages */}
+          {}
           {showNavTabs && (
             <nav className="hidden md:flex items-center gap-1">
               {navItems.map((item) => {
@@ -104,7 +101,7 @@ export default function Navbar() {
             </nav>
           )}
 
-          {/* Auth Controls */}
+          {}
           <div className="flex items-center gap-2">
             {user ? (
               <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
@@ -146,7 +143,7 @@ export default function Navbar() {
         </div>
       </header>
 
-      {/* Auth Modal */}
+      {}
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}

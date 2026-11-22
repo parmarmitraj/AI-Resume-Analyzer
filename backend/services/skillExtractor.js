@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-// Structural stop words to prevent false-positive skill matching
 const STOPWORDS = new Set([
   'using', 'used', 'use', 'developed', 'built', 'implemented', 'created',
   'deployed', 'services', 'interfaces', 'with', 'and', 'a', 'an', 'the',
@@ -18,7 +17,6 @@ const STOPWORDS = new Set([
   'testing', 'test', 'data', 'process', 'processes', 'solution', 'solutions'
 ]);
 
-// Common technical skills & modern aliases
 const COMMON_ALIASES = [
   'node.js', 'nodejs', 'react', 'react.js', 'reactjs', 'vue', 'vue.js', 'express', 'express.js',
   'next.js', 'nextjs', 'angular', 'angular.js', 'scikit-learn', 'sklearn', 'kubernetes', 'k8s',
@@ -34,9 +32,8 @@ const COMMON_ALIASES = [
   'linux', 'bash', 'sql', 'nosql', 'agile', 'scrum', 'jira', 'figma', 'postman'
 ];
 
-// Skill Knowledge Base (Aliases & Inferences)
 const SKILL_KNOWLEDGE_BASE = {
-  // Alias Resolution
+  
   'nodejs': ['node.js'],
   'node': ['node.js'],
   'react.js': ['react'],
@@ -62,7 +59,6 @@ const SKILL_KNOWLEDGE_BASE = {
   'tailwind': ['tailwind css'],
   'tailwindcss': ['tailwind css'],
 
-  // Skill Inference
   'mern': ['react', 'node.js', 'express', 'mongodb', 'frontend development', 'backend development', 'api', 'javascript'],
   'mean': ['angular', 'node.js', 'express', 'mongodb', 'frontend development', 'backend development', 'api', 'javascript'],
   'react': ['frontend development', 'javascript'],
@@ -104,7 +100,6 @@ const SKILL_KNOWLEDGE_BASE = {
   'css': ['frontend development'],
 };
 
-// In-memory normalized skill database
 const KNOWN_SKILLS_DB = new Set();
 const NORMALIZED_SKILLS = new Map();
 
@@ -116,7 +111,6 @@ function normalizeSkillKey(skill) {
     .trim();
 }
 
-// Load skills.csv on startup
 function initSkillDatabase() {
   const possiblePaths = [
     path.join(__dirname, '../../skills.csv'),

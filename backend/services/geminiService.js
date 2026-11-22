@@ -1,7 +1,3 @@
-/**
- * Generates personalized AI coaching feedback for a candidate resume
- * Uses Gemini API if GEMINI_API_KEY is configured, otherwise provides intelligent rule-based coaching.
- */
 
 async function generateFeedback({ matchResults, resumeText, jdText, jobRole = 'Software Engineer' }) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -60,7 +56,6 @@ Evaluate the candidate and return STRICTLY a JSON object with:
     }
   }
 
-  // Resilient heuristic coaching engine (Default / Offline)
   return generateHeuristicFeedback(matchResults, jobRole);
 }
 
